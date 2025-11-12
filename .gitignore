@@ -1,0 +1,12 @@
+__pycache__/
+*.bam*
+/matrices*
+data/
+results/
+output/
+*bin*
+*.csv
+*plots*
+*.ide
+*.png
+figures/
