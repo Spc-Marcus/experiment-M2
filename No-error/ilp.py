@@ -323,7 +323,8 @@ def ilp(input_matrix: np.ndarray, error_rate: float = 0.025, version:int=1) -> T
         Input binary matrix
     error_rate : float, optional
         Tolerance level for pattern detection. Default is 0.025.
-    
+    version : int, optional
+        Version of the ILP model to use. Default is 1.
     Returns
     -------
     Tuple[List[int], List[int], bool]
@@ -336,6 +337,4 @@ def ilp(input_matrix: np.ndarray, error_rate: float = 0.025, version:int=1) -> T
     if version == 3:
         return find_quasi_biclique_max_e_r_V2(input_matrix, error_rate)
     if version == 4:
-        return find_quasi_biclique_max_one_V1_2(input_matrix,error_rate)
-    if version == 5:
-        return find_quasi_biclique_max_one_V3(input_matrix, error_rate)
+        return find_quasi_biclique_max_one_V3(input_matrix,error_rate)

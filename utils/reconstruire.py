@@ -1,4 +1,4 @@
-from create_matrix import *
+from utils.create_matrix import *
 
 
 def make_all_steps(extended_info: MixedMatrixInfo,base : list[list[int]]) -> list[tuple[list[int], list[int], list[int]]]:
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         col_multiplicities=extended_info.col_multiplicities,
         col_origin_indices=extended_info.col_origin_indices,
     )
-    mixed_info = mix_matrices(extended_info_noisy)
+    mixed_info = mix_matrix(extended_info_noisy)
     print("\nMatrice mélangée :")
     print(mixed_info.matrix)
     print("Clusters de lignes (original -> lignes mélangées):", mixed_info.row_clusters)

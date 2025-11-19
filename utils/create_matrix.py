@@ -200,7 +200,7 @@ class MixedMatrixInfo:
     col_clusters: Dict[int, List[int]]
 
 
-def mix_matrices(extended_info: ExtendedMatrixInfo) -> MixedMatrixInfo:
+def mix_matrix(extended_info: ExtendedMatrixInfo) -> MixedMatrixInfo:
     """Mélange lignes et colonnes d'une matrice étendue et retourne les clusters.
 
     Cette fonction prend en entrée l'objet retourné par extend_matrix (ou la même
@@ -282,7 +282,7 @@ if __name__ == "__main__":
         col_origin_indices=extended_info.col_origin_indices,
     )
 
-    mixed_info = mix_matrices(extended_info_noisy)
+    mixed_info = mix_matrix(extended_info_noisy)
     print("\nMatrice mélangée :")
     print(mixed_info.matrix)
     print("Clusters de lignes (original -> lignes mélangées):", mixed_info.row_clusters)

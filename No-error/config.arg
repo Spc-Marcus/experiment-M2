@@ -1,0 +1,15 @@
+stripe: 5,6,7
+haplotypes: 7,8,9,10
+min_row: 3
+max_row: 15
+min_col: 3
+max_col: 15
+nb_it: 20
+max_one: 1
+max_one_v2: 1
+max_one_v3: 1
+max_e_r: 1
+resultat_file: results.csv
+best: best.csv
+distance: 0
+log_error: 1
