@@ -6,8 +6,8 @@ min_col: 3
 max_col: 15
 nb_it: 20
 max_one: 1
-max_one_v2: 1
-max_one_v3: 1
+max_one_v2: 0
+max_one_v3: 0
 max_e_r: 1
 resultat_file: results.csv
 best: best.csv

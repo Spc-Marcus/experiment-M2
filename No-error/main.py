@@ -93,13 +93,13 @@ def main(conf_file: dict):
                 for i in range(nb_it):
                     # Appel des fonctions de création de matrice et de reconstruction
                     matrix = create_simple_matrix(haplotypes, stripe)
-                    matrix2 = matrix.copy()
-                    extended_info = extend_matrix(matrix2, size_rows, size_cols)
+                    extended_info = extend_matrix(matrix, size_rows, size_cols)
+                    matrixCopy = extended_info.matrix.copy()
                     mixed_info = mix_matrix(extended_info)
                     # Génération des étapes de biclustering pour reconstruire la matrice de base
                     reconstructed = make_all_steps(mixed_info, matrix)
                     read_names = [f"read_{i}" for i in range(mixed_info.matrix.shape[0])]
-                    baseline_clusters, _, baseline_orphans, _ = post_processing(mixed_info.matrix, reconstructed, read_names, distance_thresh,1)
+                    baseline_clusters, _, baseline_orphans, _ = post_processing(matrixCopy, reconstructed, read_names, distance_thresh,1)
                     # utiliser les modèles ILP sélectionnés
                     row = {
                         'Error-Rate': error_rate,
@@ -124,15 +124,15 @@ def main(conf_file: dict):
                         min_col_q = size_cols[0]
                         # Appel à la nouvelle fonction
                         start = time.time()
-                        steps, info = clustering_full_matrix(mixed_info.matrix,
+                        steps, info = clustering_full_matrix(matrixCopy,
                                                     regions=regions,
                                                     version=version,
-                                                    min_row_quality=min_row_q,
-                                                    min_col_quality=min_col_q,
+                                                    min_row_quality=1,
+                                                    min_col_quality=1,
                                                     error_rate=error_rate)
                         end = time.time()
                         elapsed_time = end - start
-                        model_clusters, _, model_orphans, _ = post_processing(mixed_info.matrix, steps, read_names,distance_thresh, 1)
+                        model_clusters, _, model_orphans, _ = post_processing(matrixCopy, steps, read_names,distance_thresh, 1)
                         is_equal = clusters_equal(baseline_clusters, model_clusters)
                         model_data[model_name] = {
                             'time': elapsed_time,

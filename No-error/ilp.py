@@ -251,7 +251,7 @@ def clustering_step(input_matrix: np.ndarray,
             # Search for negative patterns (dense regions of 0s in original)
             rw, cl, status = ilp(matrix0[remain_rows][:, current_cols], error_rate,version)
         nb_ilp_steps += 1
-
+        print("Col: " , cl, "Rows: " , rw, "IsOne: ", clustering_1)
         # Convert local indices back to global matrix coordinates
         rw = [remain_rows[r] for r in rw]  # Map row indices to original matrix
         cl = [current_cols[c] for c in cl]  # Map column indices to original matrix
