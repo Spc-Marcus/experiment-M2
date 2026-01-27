@@ -12,9 +12,9 @@ class MaxOneModel:
 
         # Create model
         if env is not None:
-            self.model = gp.Model("max_one_grb_v2",env=env)
+            self.model = gp.Model("max_one_grb_v3",env=env)
         else:
-            self.model = gp.Model("max_one_grb_v2")
+            self.model = gp.Model("max_one_grb_v3")
         self.model.setAttr('ModelSense', GRB.MAXIMIZE)
 
         # Variables

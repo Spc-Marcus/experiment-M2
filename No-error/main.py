@@ -52,7 +52,15 @@ def main(conf_file: dict):
             return val.strip().lower() in ("1", "true", "yes", "on")
         return bool(val)
 
-    model_keys = ["max_one", "max_one_v2", "max_one_v3", "max_e_r"]
+    # Liste des modèles disponibles:
+    # - max_one: V1 original - Nouveau modèle à chaque phase
+    # - max_one_v2: V2 - Un seul modèle avec contraintes dynamiques
+    # - max_one_v3: V3 - Un seul modèle + contraintes dynamiques + WarmStart (comme V2 mais avec WarmStart)
+    # - max_one_v3a: V3a - Un seul modèle + contraintes dynamiques, SANS WarmStart
+    # - max_one_v3b: V3b - Reconstruction modèle (seeds only) + WarmStart
+    # - max_one_v3c: V3c - Reconstruction modèle (seeds only), SANS WarmStart
+    # - max_e_r: Modèle avec error rate dans l'objectif
+    model_keys = ["max_one", "max_one_v2", "max_one_v3", "max_one_v3a", "max_one_v3b", "max_one_v3c", "max_e_r"]
     selected_models = [k for k in model_keys if _is_selected(conf_file.get(k))]
 
     for model_name in selected_models:
@@ -116,7 +124,10 @@ def main(conf_file: dict):
                         version_map = {
                             "max_one": 1,
                             "max_one_v2": 2,
-                            "max_one_v3": 4,
+                            "max_one_v3": 4,       # Un seul modèle + contraintes dynamiques + WarmStart
+                            "max_one_v3a": 5,      # Un seul modèle + contraintes dynamiques, SANS WarmStart
+                            "max_one_v3b": 6,      # Reconstruction modèle (seeds only) + WarmStart
+                            "max_one_v3c": 7,      # Reconstruction modèle (seeds only), SANS WarmStart
                             "max_e_r": 3,
                         }
                         version = version_map.get(model_name, 1)

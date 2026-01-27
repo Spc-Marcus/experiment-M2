@@ -325,6 +325,16 @@ def ilp(input_matrix: np.ndarray, error_rate: float = 0.025, version:int=1) -> T
         Tolerance level for pattern detection. Default is 0.025.
     version : int, optional
         Version of the ILP model to use. Default is 1.
+        
+        Versions disponibles:
+        - 1: V1 original (max_Ones_gurobi) - Nouveau modèle à chaque phase
+        - 2: V2 (MaxOneModel) - Un seul modèle avec contraintes dynamiques
+        - 3: max_e_r - Modèle avec error rate dans l'objectif
+        - 4: V3 - Un seul modèle + contraintes dynamiques + WarmStart (comme V2 mais avec WarmStart)
+        - 5: V3a - Un seul modèle + contraintes dynamiques, SANS WarmStart
+        - 6: V3b - Reconstruction modèle (seeds only) + WarmStart
+        - 7: V3c - Reconstruction modèle (seeds only), SANS WarmStart
+        
     Returns
     -------
     Tuple[List[int], List[int], bool]
@@ -337,4 +347,12 @@ def ilp(input_matrix: np.ndarray, error_rate: float = 0.025, version:int=1) -> T
     if version == 3:
         return find_quasi_biclique_max_e_r_V2(input_matrix, error_rate)
     if version == 4:
-        return find_quasi_biclique_max_one_V3(input_matrix,error_rate)
+        return find_quasi_biclique_max_one_V3(input_matrix, error_rate)
+    if version == 5:
+        return find_quasi_biclique_max_one_V3a(input_matrix, error_rate)
+    if version == 6:
+        return find_quasi_biclique_max_one_V3b(input_matrix, error_rate)
+    if version == 7:
+        return find_quasi_biclique_max_one_V3c(input_matrix, error_rate)
+    # Default to version 1
+    return find_quasi_dens_matrix_max_ones(input_matrix, error_rate)
