@@ -35,7 +35,7 @@ class MaxERModel:
 
     def _create_cell_variables(self):
         return {
-            (row, col): self.model.addVar(vtype=GRB.CONTINUOUS, lb=0, ub=1, name=f'cell_{row}_{col}')
+            (row, col): self.model.addVar(vtype=GRB.BINARY, lb=0, ub=1, name=f'cell_{row}_{col}')
             for row, col in self.edges
         }
 
@@ -82,6 +82,8 @@ class MaxERModel:
             if row in self.lp_rows and col in self.lp_cols and (row, col) in self.lp_cells:
                 self.model.addConstr(self.lp_rows[row][0] >= self.lp_cells[(row, col)], f'cell_{row}_{col}_1')
                 self.model.addConstr(self.lp_cols[col][0] >= self.lp_cells[(row, col)], f'cell_{row}_{col}_2')
+                # Contrainte stricte de liaison: si row ET col sont sélectionnés, alors cell doit être 1
+                self.model.addConstr(self.lp_rows[row][0] + self.lp_cols[col][0] - 1 <= self.lp_cells[(row, col)], f'cell_{row}_{col}_3')
 
     def add_density_constraints(self, delta):
         self._density_constrs = []

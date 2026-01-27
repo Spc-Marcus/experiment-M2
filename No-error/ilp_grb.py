@@ -370,6 +370,20 @@ def find_quasi_biclique_max_e_r_V2(
             if model.status == 2:
                 rw = model.get_selected_rows()
                 cl = model.get_selected_cols()
+            else:
+                return rw, cl, True if (rw and cl) else ([], [], False)
+            
+            # PHASE 3: EXTENSION LIGNES (relâchement supplémentaire)
+            no_use_cols_phase3 = [c for c in range(n_cols) if c not in cl]
+            model.remove_forced_rows_zero(no_use_rows_seed)
+            model.add_forced_cols_zero(no_use_cols_phase3)
+            model.add_improvement_constraint(model.ObjVal)
+            model.setParam('TimeLimit', 180)
+            model.optimize()
+            
+            if model.status == 2:
+                rw = model.get_selected_rows()
+                cl = model.get_selected_cols()
             
             if rw and cl:
                 return rw, cl, True
