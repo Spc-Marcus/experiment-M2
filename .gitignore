@@ -10,3 +10,5 @@ output/
 *.ide
 *.png
 figures/
+rdm/
+toto.txt
