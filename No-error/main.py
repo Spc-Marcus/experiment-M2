@@ -160,7 +160,7 @@ def main(conf_file: dict):
                         row[f'{model_name}-Stripe'] = len(steps)
                         row[f'{model_name}-Orfelin'] = len(model_orphans)
                         row[f'{model_name}-Is-Equal'] = 1 if is_equal else 0
-                    if log_error and (any(d['is_equal'] for d in model_data.values()) or any(d['haplotypes'] != haplotypes for d in model_data.values())):
+                    if log_error and (not any(d['is_equal'] for d in model_data.values()) or any(d['haplotypes'] != haplotypes for d in model_data.values())):
                         os.makedirs("temp", exist_ok=True)
                         filename = f"temp/{int(time.time())}.txt"
                         with open(filename, 'w') as f:
