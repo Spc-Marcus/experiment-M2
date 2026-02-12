@@ -21,13 +21,26 @@ def parse_arg_file(file_path: str) -> dict:
                     key = key.strip()
                     value = value.strip()
                     if ',' in value:
-                        # Traiter comme une liste d'entiers
-                        result[key] = [int(item.strip()) for item in value.split(',')]
+                        # Traiter comme une liste de nombres (int si possible, sinon float)
+                        items = []
+                        for item in value.split(','):
+                            item = item.strip()
+                            try:
+                                items.append(int(item))
+                            except ValueError:
+                                try:
+                                    items.append(float(item))
+                                except ValueError:
+                                    items.append(item)
+                        result[key] = items
                     else:
                         try:
                             result[key] = int(value)
                         except ValueError:
-                            result[key] = value
+                            try:
+                                result[key] = float(value)
+                            except ValueError:
+                                result[key] = value
     except FileNotFoundError:
         print(f"Erreur : Le fichier {file_path} n'existe pas.")
         return {}

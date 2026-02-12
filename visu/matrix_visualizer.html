@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisateur de Matrice CSV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+            background-color: #f5f5f5;
+            overflow-x: auto;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+        
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .size-control label {
+            font-weight: bold;
+            min-width: 120px;
+        }
+        
+        .size-control input[type="range"] {
+            width: 150px;
+        }
+        
+        .size-control span {
+            min-width: 40px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .auto-size {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .matrix-container {
+            overflow: auto;
+            max-height: calc(100vh - 250px);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        .matrix {
+            display: inline-block;
+            border-collapse: collapse;
+            margin: 5px;
+        }
+        
+        .matrix.compact {
+            line-height: 0;
+            font-size: 0;
+        }
+        
+        .cell {
+            border: 0.5px solid #e0e0e0;
+            display: inline-block;
+            margin: 0;
+            transition: transform 0.1s;
+        }
+        
+        .cell:hover {
+            transform: scale(1.2);
+            z-index: 10;
+            position: relative;
+            border: 1px solid #333;
+        }
+        
+        .cell.compact {
+            border: none;
+            padding: 0;
+            vertical-align: top;
+        }
+        
+        .cell.compact:hover {
+            opacity: 0.7;
+            transform: none;
+            z-index: auto;
+            border: none;
+        }
+        
+        .cell-0 {
+            background-color: #ffffff;
+        }
+        
+        .cell-1 {
+            background-color: #000000;
+        }
+        
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .info-value {
+            color: #333;
+            font-size: 1.1em;
+        }
+        
+        .row {
+            display: block;
+            margin: 0;
+            line-height: 0;
+        }
+        
+        .row.compact {
+            padding: 0;
+            font-size: 0;
+        }
+        
+        .sort-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sort-control select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .sort-control button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .sort-control button:hover {
+            background-color: #0056b3;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .size-control {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Visualisateur de Matrice CSV (0 et 1)</h1>
+        
+        <div class="upload-area" id="csvUploadArea" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+            <p>Cliquez ici ou glissez-déposez votre fichier CSV</p>
+            <small>Format attendu : matrice de 0 et 1 séparés par des virgules</small>
+        </div>
+        <div class="upload-area" id="txtUploadArea" style="display:none;" onclick="document.getElementById('txtInput').click()">
+            <input type="file" id="txtInput" accept=".txt" style="display: none;">
+            <p>Cliquez ici ou glissez-déposez votre fichier TXT (optionnel)</p>
+            <small>Format attendu : fichier res8.txt pour réordonner lignes/colonnes</small>
+        </div>
+        
+        <div class="controls" id="controls" style="display: none;">
+            <div class="size-control">
+                <label for="cellSize">Taille des cellules:</label>
+                <input type="range" id="cellSize" min="2" max="20" value="8" step="1">
+                <span id="cellSizeValue">8px</span>
+            </div>
+            
+            <div class="auto-size">
+                <input type="checkbox" id="autoSize" checked>
+                <label for="autoSize">Ajustement automatique</label>
+            </div>
+            
+            <div class="auto-size">
+                <input type="checkbox" id="compactMode">
+                <label for="compactMode">Mode compact (sans bordures)</label>
+            </div>
+            
+            <div class="sort-control">
+                <label for="sortBy">Trier les lignes par:</label>
+                <select id="sortBy">
+                    <option value="original">Ordre original</option>
+                    <option value="sum_asc">Somme croissante</option>
+                    <option value="sum_desc">Somme décroissante</option>
+                    <option value="density_asc">Densité croissante</option>
+                    <option value="density_desc">Densité décroissante</option>
+                    <option value="pattern">Motif similaire</option>
+                </select>
+                <button onclick="applySorting()">Appliquer</button>
+            </div>
+            
+            <button onclick="resetView()">Réinitialiser</button>
+            <button onclick="fitToWindow()">Ajuster à la fenêtre</button>
+        </div>
+        
+        <div id="info" class="info" style="display: none;">
+            <div class="info-item">
+                <span class="info-label">Dimensions</span>
+                <span class="info-value" id="dimensions">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Total cellules</span>
+                <span class="info-value" id="totalCells">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Cellules noires (1)</span>
+                <span class="info-value" id="blackCells">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Cellules blanches (0)</span>
+                <span class="info-value" id="whiteCells">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Densité</span>
+                <span class="info-value" id="density">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Taille cellule</span>
+                <span class="info-value" id="currentSize">-</span>
+            </div>
+        </div>
+        
+        <div id="matrixContainer" class="matrix-container" style="display: none;">
+            <div id="matrix" class="matrix"></div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const txtInput = document.getElementById('txtInput');
+        const matrixContainer = document.getElementById('matrixContainer');
+        const matrixElement = document.getElementById('matrix');
+        const infoDiv = document.getElementById('info');
+        const controlsDiv = document.getElementById('controls');
+        const cellSizeSlider = document.getElementById('cellSize');
+        const cellSizeValue = document.getElementById('cellSizeValue');
+        const autoSizeCheckbox = document.getElementById('autoSize');
+        const compactModeCheckbox = document.getElementById('compactMode');
+        const sortBySelect = document.getElementById('sortBy');
+        const csvUploadArea = document.getElementById('csvUploadArea');
+        const txtUploadArea = document.getElementById('txtUploadArea');
+        
+        let originalMatrix = null;
+        let currentMatrix = null;
+        let currentRows = 0;
+        let currentCols = 0;
+        let rowIndices = null; // Track current row order
+        let txtIndices = null; // Pour stocker les indices du .txt
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        txtInput.addEventListener('change', handleTxtSelect);
+        cellSizeSlider.addEventListener('input', updateCellSize);
+        autoSizeCheckbox.addEventListener('change', handleAutoSizeChange);
+        compactModeCheckbox.addEventListener('change', handleCompactModeChange);
+        window.addEventListener('resize', handleWindowResize);
+        
+        // Drag and drop pour CSV
+        csvUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            csvUploadArea.style.borderColor = '#007bff';
+        });
+        csvUploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            csvUploadArea.style.borderColor = '#ccc';
+        });
+        csvUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            csvUploadArea.style.borderColor = '#ccc';
+            const files = e.dataTransfer.files;
+            let csvFile = null;
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.toLowerCase().endsWith('.csv')) csvFile = files[i];
+            }
+            if (csvFile) processFile(csvFile);
+            else alert('Veuillez sélectionner un fichier CSV');
+        });
+        // Drag and drop pour TXT
+        txtUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            txtUploadArea.style.borderColor = '#007bff';
+        });
+        txtUploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            txtUploadArea.style.borderColor = '#ccc';
+        });
+        txtUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            txtUploadArea.style.borderColor = '#ccc';
+            const files = e.dataTransfer.files;
+            let txtFile = null;
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.toLowerCase().endsWith('.txt')) txtFile = files[i];
+            }
+            if (txtFile) handleTxtFileAfterCsv(txtFile);
+            else alert('Veuillez sélectionner un fichier TXT');
+        });
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+        
+        function handleTxtSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleTxtFileAfterCsv(file);
+            }
+        }
+        
+        function processFile(file) {
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                alert('Veuillez sélectionner un fichier CSV');
+                return;
+            }
+            txtIndices = null;
+            readCsvAndDisplay(file);
+            // Afficher la zone TXT après chargement du CSV
+            txtUploadArea.style.display = 'block';
+        }
+        
+        function handleTxtFileAfterCsv(file) {
+            parseTxtFile(file, (indices) => {
+                txtIndices = indices;
+                // Réordonner la matrice déjà affichée
+                if (originalMatrix) {
+                    applyTxtIndicesToCurrentMatrix();
+                }
+            });
+        }
+        
+        function applyTxtIndicesToCurrentMatrix() {
+            // Utilise txtIndices pour réordonner currentMatrix
+            if (!txtIndices || !originalMatrix) return;
+            let matrix = JSON.parse(JSON.stringify(originalMatrix));
+            let reorderedMatrix = matrix;
+            let reorderedRowIndices = null;
+            let reorderedColIndices = null;
+            if (txtIndices.rowIndices || txtIndices.colIndices) {
+                if (txtIndices.rowIndices) {
+                    const restRows = Array.from({length: matrix.length}, (_, i) => i).filter(i => !txtIndices.rowIndices.includes(i));
+                    reorderedRowIndices = [...txtIndices.rowIndices, ...restRows];
+                } else {
+                    reorderedRowIndices = Array.from({length: matrix.length}, (_, i) => i);
+                }
+                if (txtIndices.colIndices) {
+                    const restCols = Array.from({length: matrix[0].length}, (_, i) => i).filter(i => !txtIndices.colIndices.includes(i));
+                    reorderedColIndices = [...txtIndices.colIndices, ...restCols];
+                } else {
+                    reorderedColIndices = Array.from({length: matrix[0].length}, (_, i) => i);
+                }
+                // Réordonner d'abord les lignes, puis les colonnes
+                reorderedMatrix = reorderedRowIndices.map(i => {
+                    return reorderedColIndices.map(j => matrix[i][j]);
+                });
+            }
+            currentMatrix = reorderedMatrix;
+            currentRows = reorderedMatrix.length;
+            currentCols = reorderedMatrix[0].length;
+            rowIndices = reorderedRowIndices || Array.from({length: currentRows}, (_, i) => i);
+            displayMatrix(reorderedMatrix);
+        }
+        
+        function readCsvAndDisplay(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvData = e.target.result;
+                parseAndDisplayMatrix(csvData);
+            };
+            reader.readAsText(file);
+        }
+        
+        function parseTxtFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const txt = e.target.result;
+                // Extraction des indices
+                const rowMatch = txt.match(/row_indices\s*:\s*\[([^\]]*)\]/) || txt.match(/list_rows_indices\s*:\s*\[([^\]]*)\]/);
+                const colMatch = txt.match(/col_indices\s*:\s*\[([^\]]*)\]/) || txt.match(/list_cols_indices\s*:\s*\[([^\]]*)\]/);
+                let rowIndices = rowMatch ? rowMatch[1].split(',').map(x => parseInt(x.trim()) + 1).filter(x => !isNaN(x) && x >= 0) : null;
+                let colIndices = colMatch ? colMatch[1].split(',').map(x => parseInt(x.trim()) + 1).filter(x => !isNaN(x) && x >= 0) : null;
+                callback({rowIndices, colIndices});
+            };
+            reader.readAsText(file);
+        }
+        
+        function parseAndDisplayMatrix(csvData) {
+            const lines = csvData.trim().split('\n');
+            const matrix = [];
+            
+            // Parse CSV data
+            for (let line of lines) {
+                const row = line.split(',').map(cell => {
+                    const value = parseInt(cell.trim());
+                    return (value === 0 || value === 1) ? value : 0;
+                });
+                matrix.push(row);
+            }
+            
+            if (matrix.length === 0) {
+                alert('Aucune donnée valide trouvée dans le fichier');
+                return;
+            }
+            
+            originalMatrix = JSON.parse(JSON.stringify(matrix)); // Deep copy
+            currentMatrix = matrix;
+            currentRows = matrix.length;
+            currentCols = matrix[0].length;
+            rowIndices = Array.from({length: currentRows}, (_, i) => i); // Original order
+            
+            // Auto-adjust cell size if enabled
+            if (autoSizeCheckbox.checked) {
+                calculateOptimalSize();
+            }
+            
+            displayMatrix(matrix);
+            controlsDiv.style.display = 'flex';
+            // Afficher la zone TXT après chargement du CSV
+            txtUploadArea.style.display = 'block';
+        }
+        
+        function applySorting() {
+            if (!originalMatrix) return;
+            
+            const sortType = sortBySelect.value;
+            const matrixCopy = JSON.parse(JSON.stringify(originalMatrix));
+            
+            // Create array of {row, index, sortValue} for sorting
+            const rowsWithData = matrixCopy.map((row, index) => {
+                const sum = row.reduce((a, b) => a + b, 0);
+                const density = sum / row.length;
+                
+                return {
+                    row: row,
+                    originalIndex: index,
+                    sum: sum,
+                    density: density,
+                    pattern: row.join('') // For pattern-based sorting
+                };
+            });
+            
+            // Sort based on selected criteria
+            switch (sortType) {
+                case 'original':
+                    rowsWithData.sort((a, b) => a.originalIndex - b.originalIndex);
+                    break;
+                    
+                case 'sum_asc':
+                    rowsWithData.sort((a, b) => a.sum - b.sum);
+                    break;
+                    
+                case 'sum_desc':
+                    rowsWithData.sort((a, b) => b.sum - a.sum);
+                    break;
+                    
+                case 'density_asc':
+                    rowsWithData.sort((a, b) => a.density - b.density);
+                    break;
+                    
+                case 'density_desc':
+                    rowsWithData.sort((a, b) => b.density - a.density);
+                    break;
+                    
+                case 'pattern':
+                    // Sort by pattern similarity (group similar patterns together)
+                    rowsWithData.sort((a, b) => {
+                        if (a.pattern < b.pattern) return -1;
+                        if (a.pattern > b.pattern) return 1;
+                        return 0;
+                    });
+                    break;
+            }
+            
+            // Extract sorted matrix and indices
+            currentMatrix = rowsWithData.map(item => item.row);
+            rowIndices = rowsWithData.map(item => item.originalIndex);
+            
+            displayMatrix(currentMatrix);
+        }
+        
+        function calculateOptimalSize() {
+            // Calculate optimal cell size based on window and matrix dimensions
+            const containerWidth = window.innerWidth - 100; // Leave some margin
+            const containerHeight = window.innerHeight - 300; // Leave space for controls
+            
+            const maxCellWidth = Math.floor(containerWidth / currentCols);
+            const maxCellHeight = Math.floor(containerHeight / currentRows);
+            
+            const optimalSize = Math.min(maxCellWidth, maxCellHeight, 20); // Max 20px
+            const finalSize = Math.max(optimalSize, 2); // Min 2px
+            
+            cellSizeSlider.value = finalSize;
+            updateCellSizeDisplay(finalSize);
+        }
+        
+        function displayMatrix(matrix) {
+            matrixElement.innerHTML = '';
+            
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const cellSize = parseInt(cellSizeSlider.value);
+            const isCompact = compactModeCheckbox.checked;
+            
+            // Apply compact mode classes
+            if (isCompact) {
+                matrixElement.classList.add('compact');
+            } else {
+                matrixElement.classList.remove('compact');
+            }
+            
+            // Count values for statistics
+            let blackCount = 0;
+            let whiteCount = 0;
+            
+            // Create matrix visualization
+            for (let i = 0; i < rows; i++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = isCompact ? 'row compact' : 'row';
+                
+                // Add row info for debugging
+                const originalRowIndex = rowIndices ? rowIndices[i] : i;
+                const rowSum = matrix[i].reduce((a, b) => a + b, 0);
+                const rowDensity = (rowSum / cols * 100).toFixed(1);
+                
+                for (let j = 0; j < cols; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = isCompact ? `cell cell-${matrix[i][j]} compact` : `cell cell-${matrix[i][j]}`;
+                    cell.style.width = cellSize + 'px';
+                    cell.style.height = cellSize + 'px';
+                    cell.title = `Position: (${i}, ${j}) | Valeur: ${matrix[i][j]} | Ligne orig: ${originalRowIndex} | Somme ligne: ${rowSum} | Densité: ${rowDensity}%`;
+                    
+                    if (matrix[i][j] === 1) {
+                        blackCount++;
+                    } else {
+                        whiteCount++;
+                    }
+                    
+                    rowDiv.appendChild(cell);
+                }
+                
+                matrixElement.appendChild(rowDiv);
+            }
+            
+            // Update info
+            updateInfo(rows, cols, blackCount, whiteCount, cellSize);
+            
+            infoDiv.style.display = 'block';
+            matrixContainer.style.display = 'block';
+        }
+        
+        function updateInfo(rows, cols, blackCount, whiteCount, cellSize) {
+            const total = blackCount + whiteCount;
+            const density = (blackCount / total * 100).toFixed(1);
+            
+            document.getElementById('dimensions').textContent = `${rows} × ${cols}`;
+            document.getElementById('totalCells').textContent = total.toLocaleString();
+            document.getElementById('blackCells').textContent = `${blackCount.toLocaleString()} (${density}%)`;
+            document.getElementById('whiteCells').textContent = `${whiteCount.toLocaleString()} (${(100-density).toFixed(1)}%)`;
+            document.getElementById('density').textContent = `${density}%`;
+            document.getElementById('currentSize').textContent = `${cellSize}px`;
+        }
+        
+        function updateCellSize() {
+            const size = parseInt(cellSizeSlider.value);
+            updateCellSizeDisplay(size);
+            
+            if (currentMatrix) {
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        function updateCellSizeDisplay(size) {
+            cellSizeValue.textContent = size + 'px';
+        }
+        
+        function handleAutoSizeChange() {
+            if (autoSizeCheckbox.checked && currentMatrix) {
+                calculateOptimalSize();
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        function handleCompactModeChange() {
+            if (currentMatrix) {
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        function handleWindowResize() {
+            if (autoSizeCheckbox.checked && currentMatrix) {
+                calculateOptimalSize();
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        function resetView() {
+            cellSizeSlider.value = 8;
+            autoSizeCheckbox.checked = true;
+            compactModeCheckbox.checked = false;
+            sortBySelect.value = 'original';
+            updateCellSizeDisplay(8);
+            
+            if (originalMatrix) {
+                currentMatrix = JSON.parse(JSON.stringify(originalMatrix));
+                rowIndices = Array.from({length: currentRows}, (_, i) => i);
+                calculateOptimalSize();
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        function fitToWindow() {
+            if (currentMatrix) {
+                autoSizeCheckbox.checked = true;
+                calculateOptimalSize();
+                displayMatrix(currentMatrix);
+            }
+        }
+        
+        // Initialize
+        updateCellSizeDisplay(8);
+    </script>
+</body>
+</html>

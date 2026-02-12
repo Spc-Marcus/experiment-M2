@@ -1,10 +1,10 @@
-stripe: 5,6,7,8
-haplotypes: 8,9,10,11,12
+stripe: 7,8
+haplotypes: 9,10
 min_row: 3
 max_row: 30
 min_col: 5
 max_col: 15
-nb_it: 15
+nb_it: 200
 max_one: 1
 max_one_v2: 1
 max_one_v3: 1
@@ -15,4 +15,4 @@ max_e_r: 1
 resultat_file: results.csv
 best: best.csv
 distance: 0
-log_error: 0
+log_error: 1
