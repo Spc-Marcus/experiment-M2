@@ -8,6 +8,7 @@ from utils.reconstruire import *
 from utils.parser import parse_arg_file
 from ilp import *
 from post_processing import post_processing
+from utils.cluster_diff import count_different_clusters
 import csv
 import time
 import numpy as np
@@ -66,7 +67,7 @@ def main(conf_file: dict):
     for model_name in selected_models:
         header_cols.extend([
             f"{model_name}-Time", f"{model_name}-Haplotypes",
-            f"{model_name}-Stripe", f"{model_name}-Orfelin", f"{model_name}-Is-Equal",
+            f"{model_name}-Stripe", f"{model_name}-Orfelin", f"{model_name}-Is-Equal", f"{model_name}-diffHaplo",
         ])
 
     print("En-tête CSV :", header_cols)
@@ -101,13 +102,15 @@ def main(conf_file: dict):
                 for i in range(nb_it):
                     # Appel des fonctions de création de matrice et de reconstruction
                     matrix = create_simple_matrix(haplotypes, stripe)
-                    extended_info = extend_matrix(matrix, size_rows, size_cols)
+                    # extend_matrix expects (matrix, size_cols, size_rows)
+                    extended_info = extend_matrix(matrix, size_cols, size_rows)
                     matrixCopy = extended_info.matrix.copy()
                     mixed_info = mix_matrix(extended_info)
                     # Génération des étapes de biclustering pour reconstruire la matrice de base
                     reconstructed = make_all_steps(mixed_info, matrix)
                     read_names = [f"read_{i}" for i in range(mixed_info.matrix.shape[0])]
-                    baseline_clusters, _, baseline_orphans, _ = post_processing(matrixCopy, reconstructed, read_names, distance_thresh,1)
+                    # Utiliser la matrice mélangée pour le post-processing des steps (indices sont sur la matrice mélangée)
+                    baseline_clusters, _, baseline_orphans, _ = post_processing(mixed_info.matrix, reconstructed, read_names, distance_thresh,1)
                     # utiliser les modèles ILP sélectionnés
                     row = {
                         'Error-Rate': error_rate,
@@ -135,7 +138,8 @@ def main(conf_file: dict):
                         min_col_q = size_cols[0]
                         # Appel à la nouvelle fonction
                         start = time.time()
-                        steps, info = clustering_full_matrix(matrixCopy,
+                        # L'ILP doit être exécuté sur la matrice mélangée (mêmes indices que les steps)
+                        steps, info = clustering_full_matrix(mixed_info.matrix,
                                                     regions=regions,
                                                     version=version,
                                                     min_row_quality=1,
@@ -143,14 +147,16 @@ def main(conf_file: dict):
                                                     error_rate=error_rate)
                         end = time.time()
                         elapsed_time = end - start
-                        model_clusters, _, model_orphans, _ = post_processing(matrixCopy, steps, read_names,distance_thresh, 1)
+                        model_clusters, _, model_orphans, _ = post_processing(mixed_info.matrix, steps, read_names,distance_thresh, 1)
                         is_equal = clusters_equal(baseline_clusters, model_clusters)
+                        diff_count = count_different_clusters(baseline_clusters, model_clusters)
                         model_data[model_name] = {
                             'time': elapsed_time,
                             'haplotypes': len(model_clusters),
                             'stripes': len(steps),
                             'orphans': len(model_orphans),
                             'is_equal': is_equal,
+                            'diff_haplo': diff_count,
                             'steps': steps,
                             'clusters': model_clusters,
                             'orphans_list': model_orphans
@@ -160,6 +166,7 @@ def main(conf_file: dict):
                         row[f'{model_name}-Stripe'] = len(steps)
                         row[f'{model_name}-Orfelin'] = len(model_orphans)
                         row[f'{model_name}-Is-Equal'] = 1 if is_equal else 0
+                        row[f'{model_name}-diffHaplo'] = diff_count
                     if log_error and (not any(d['is_equal'] for d in model_data.values()) or any(d['haplotypes'] != haplotypes for d in model_data.values())):
                         os.makedirs("temp", exist_ok=True)
                         filename = f"temp/{int(time.time())}.txt"
