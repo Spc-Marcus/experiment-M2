@@ -42,15 +42,27 @@ for model in models:
     stripes_diff = abs(df[f'{model}-Stripe'] - df['Strip'])
     stripes_errors = (stripes_diff > 0).sum()
     
-    # Total erreurs
+    # Diff pour diffHaplo (si présent)
+    diff_haplo_col = f'{model}-diffHaplo'
+    if diff_haplo_col in df.columns:
+        diff_haplo_ser = df[diff_haplo_col].fillna(0)
+        diff_haplo_errors = (diff_haplo_ser > 0).sum()
+        diff_haplo_mean = diff_haplo_ser.mean()
+    else:
+        diff_haplo_errors = 0
+        diff_haplo_mean = 0.0
+
+    # Total erreurs (haplotypes + stripes)
     total_errors = haplotypes_errors + stripes_errors
-    
+
     errors_data[model] = {
         'haplotypes_errors': haplotypes_errors,
         'stripes_errors': stripes_errors,
         'total_errors': total_errors,
         'haplotypes_diff_mean': haplotypes_diff.mean(),
         'stripes_diff_mean': stripes_diff.mean(),
+        'diffHaplo_errors': diff_haplo_errors,
+        'diffHaplo_mean': diff_haplo_mean,
     }
 
 # === 1. TEMPS : ANALYSE DÉTAILLÉE ===
@@ -116,7 +128,7 @@ print("\n✓ Graphique 'temps.png' généré (analyse détaillée)")
 plt.close()
 
 # === 2. ERREURS ===
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+fig, axes = plt.subplots(1, 3, figsize=(21, 6))
 fig.suptitle('Qualité : Erreurs par modèle', fontsize=14, fontweight='bold')
 
 # 2.1 Nombre d'erreurs (haplotypes vs stripes)
@@ -146,7 +158,7 @@ for bars in [bars1, bars2]:
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{int(height)}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-# 2.2 Différence moyenne
+# 2.2 Différence moyenne (haplotypes vs stripes)
 ax = axes[1]
 haplotypes_diff_mean = [errors_data[m]['haplotypes_diff_mean'] for m in models]
 stripes_diff_mean = [errors_data[m]['stripes_diff_mean'] for m in models]
@@ -169,6 +181,18 @@ for bars in [bars1, bars2]:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+# 2.3 diffHaplo : nombre de cas et valeur moyenne
+ax = axes[2]
+diff_errors = [errors_data[m]['diffHaplo_errors'] for m in models]
+diff_means = [errors_data[m]['diffHaplo_mean'] for m in models]
+bars = ax.bar(models, diff_errors, color='mediumpurple', alpha=0.85, edgecolor='black')
+ax.set_ylabel('Nombre de cas', fontsize=11, fontweight='bold')
+ax.set_title('Nombre de cas avec diffHaplo (clusters différents)', fontsize=12, fontweight='bold')
+ax.grid(True, alpha=0.3, axis='y')
+for bar, mean in zip(bars, diff_means):
+    h = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2., h, f'{int(h)}\nmean={mean:.2f}', ha='center', va='bottom', fontsize=9)
 
 plt.tight_layout()
 plt.savefig(Path(__file__).parent / 'qualite.png', dpi=300, bbox_inches='tight')
@@ -207,6 +231,21 @@ for model in models:
         for idx in indices[:5]:  # Afficher les 5 premières
             print(f"      Ligne {idx}: attendu={df.loc[idx, 'Strip']}, trouvé={df.loc[idx, f'{model}-Stripe']}, diff={stripe_diff[idx]}")
 
+    # diffHaplo (si présent)
+    diff_col = f'{model}-diffHaplo'
+    if diff_col in df.columns:
+        diff_ser = df[diff_col].fillna(0)
+        diff_errors = (diff_ser > 0).sum()
+        diff_mean = diff_ser.mean()
+        print(f"  diffHaplo:")
+        print(f"    - Erreurs détectées: {diff_errors}/{len(df)} ({diff_errors/len(df)*100:.1f}%)")
+        if diff_errors > 0:
+            diff_indices = diff_ser[diff_ser > 0].index.tolist()
+            print(f"    - Lignes avec diff (ex): {diff_indices[:5]}")
+        print(f"    - Moyenne diffHaplo: {diff_mean:.2f}")
+    else:
+        print(f"  diffHaplo: colonne {diff_col} absente")
+
 print("\n" + "="*70)
 
 for model in models:
@@ -219,6 +258,12 @@ for model in models:
     print(f"  Différence moyenne :")
     print(f"    - Haplotypes  : {errors_data[model]['haplotypes_diff_mean']:.2f}")
     print(f"    - Stripes     : {errors_data[model]['stripes_diff_mean']:.2f}")
+    # Afficher diffHaplo résumé
+    if errors_data[model].get('diffHaplo_errors', 0) > 0 or errors_data[model].get('diffHaplo_mean', 0) > 0:
+        print(f"  diffHaplo : {errors_data[model]['diffHaplo_errors']} cas / {len(df)} ({errors_data[model]['diffHaplo_errors']/len(df)*100:.1f}%)")
+        print(f"    - Moyenne diffHaplo : {errors_data[model]['diffHaplo_mean']:.2f}")
+    else:
+        print(f"  diffHaplo : colonne absente ou toutes valeurs nulles")
 
 print("\n" + "="*70)
 print("Graphiques générés :")
