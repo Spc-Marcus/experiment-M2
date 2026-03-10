@@ -1,10 +1,10 @@
 stripe: 7,8
 haplotypes: 9,10
 min_row: 3
-max_row: 30
+max_row: 50
 min_col: 5
-max_col: 15
-nb_it: 200
+max_col: 25
+nb_it: 10
 max_one: 1
 max_one_v2: 1
 max_one_v3: 1
