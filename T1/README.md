@@ -78,6 +78,7 @@ comments.  Lists are **comma-separated** values on a single line.
 | `gammas` | `0.9,0.95,0.99,1.0` | Target minimum sub-matrix densities; `error_rate = 1 − γ` |
 | `solvers` | *(unset)* | Exact solver class names (see below) |
 | `heuristics` | *(unset)* | Heuristic function names (see below) |
+| `heuristic_solver` | `ALL` | Solver injected as `model_class` into heuristics: `ALL` → each configured solver is used per heuristic run; a class name → only that solver is used (must appear in `solvers`) |
 | `timeout_exact` | `600` | Time limit (s) for each exact solver run |
 | `timeout_heuristic` | `150` | Time limit (s) for each heuristic run |
 | `output_dir` | `T1/results` | Output directory (relative to repo root, or absolute) |
@@ -110,6 +111,25 @@ The pipeline scans `model/heuristics/` for all callable functions.
 | `func_name` | `heuristicA` | Searches all modules under `model/heuristics` |
 | `module:func_name` | `heuristicA:heuristicA` | Targets a specific file |
 | `model.heuristics.module:func` | `model.heuristics.heuristicA:heuristicA` | Fully qualified |
+
+### How `heuristic_solver` works
+
+Every heuristic function receives a `model_class` argument of type
+`Type[BiclusterModelBase]`.  This is the solver class it uses internally to
+run the MIP sub-problems in each phase.  The result row's `solver` column
+records which class was injected.
+
+| Setting | Effect |
+|---------|--------|
+| `heuristic_solver=ALL` | Each solver listed in `solvers` is injected in turn — one CSV row per `(heuristic, solver)` pair |
+| `heuristic_solver=MaxOneModel` | Only `MaxOneModel` is injected, regardless of how many solvers appear in `solvers` |
+
+Example:
+```
+solvers=MaxOneModel,MaxSurfaceModel
+heuristics=heuristicA
+heuristic_solver=MaxOneModel   # heuristicA runs with MaxOneModel only
+```
 
 ---
 
@@ -179,6 +199,7 @@ These assumptions are logged at runtime and stored in every JSON log.
 |-----------|------------------|
 | `instances_dir` absent | Use `Mat` |
 | `solvers` empty and `synthetic=true` | Auto-select the first class found in `model/final` |
+| `heuristic_solver` names a solver not in `solvers` | Fall back to ALL solvers with a WARNING |
 | `repetitions` not set | Use `5` |
 | `gammas` empty | Use `[0.95]` |
 | `synthetic_specs` absent | `L=50, C=50, density=0.35` |

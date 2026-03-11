@@ -89,7 +89,7 @@ def build(raw: Dict[str, str]) -> Dict[str, Any]:
     dict[str, Any]  with the following keys:
 
     instances_dir, instances, synthetic, L, C, density,
-    repetitions, gammas, solvers, heuristics,
+    repetitions, gammas, solvers, heuristics, heuristic_solver,
     timeout_exact, timeout_heuristic, output_dir,
     parallel_jobs, dry_run, quick_check, _assumptions
     """
@@ -136,6 +136,14 @@ def build(raw: Dict[str, str]) -> Dict[str, Any]:
     # ── Solvers / heuristics ───────────────────────────────────────────────
     cfg["solvers"] = _parse_list(raw.get("solvers", ""))
     cfg["heuristics"] = _parse_list(raw.get("heuristics", ""))
+
+    # ── Heuristic solver ───────────────────────────────────────────────────
+    # Which solver class to inject as ``model_class`` inside heuristics.
+    # 'ALL' (case-insensitive) → every configured solver is used for each
+    # heuristic run, producing one row per (heuristic, solver) pair.
+    # A specific class name → only that solver is used; it must appear in
+    # ``solvers``.  Falls back to ALL with a warning if not found.
+    cfg["heuristic_solver"] = raw.get("heuristic_solver", "ALL").strip()
 
     # ── Timeouts ───────────────────────────────────────────────────────────
     cfg["timeout_exact"] = int(raw.get("timeout_exact", 600))

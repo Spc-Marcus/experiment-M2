@@ -19,6 +19,11 @@ solvers=MaxOneModel
 # Heuristics from model/heuristics/ (func_name or module:func_name)
 heuristics=heuristicA
 
+# Solver to use as the model inside heuristics.
+# ALL  → each configured solver is used for each heuristic run (one row per pair)
+# Name → only that solver is injected (must be listed in 'solvers')
+heuristic_solver=ALL
+
 # Timeouts
 timeout_exact=120
 timeout_heuristic=60

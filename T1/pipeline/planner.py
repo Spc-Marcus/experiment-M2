@@ -91,6 +91,16 @@ def plan_runs(
     list[dict]
     """
     solver_classes, heuristic_fns, _ = resolve_all(cfg, all_solvers, all_heuristics)
+
+    # Determine which solvers to use for heuristic plan entries
+    _hs = cfg.get("heuristic_solver", "ALL")
+    if _hs.upper() == "ALL":
+        heuristic_solver_classes = solver_classes
+    else:
+        heuristic_solver_classes = {n: c for n, c in solver_classes.items() if n == _hs}
+        if not heuristic_solver_classes:
+            heuristic_solver_classes = solver_classes
+
     runs: List[Dict[str, Any]] = []
 
     if cfg["synthetic"]:
@@ -108,7 +118,7 @@ def plan_runs(
                         "solver_name": sn,
                     })
                 for hn in heuristic_fns:
-                    for sn in solver_classes:
+                    for sn in heuristic_solver_classes:
                         runs.append({
                             "type": "heuristic",
                             "instance_id": iid,
@@ -131,7 +141,7 @@ def plan_runs(
                     })
                 for hn in heuristic_fns:
                     for rep in range(cfg["repetitions"]):
-                        for sn in solver_classes:
+                        for sn in heuristic_solver_classes:
                             runs.append({
                                 "type": "heuristic",
                                 "instance_id": iid,

@@ -105,10 +105,26 @@ def _execute_group(
                 best_known = float(obj)
 
     # ── Heuristics ─────────────────────────────────────────────────────────
+    # Determine which solver(s) to inject as model_class into heuristics.
+    # 'ALL' → use every configured solver (one row per heuristic×solver pair).
+    # Specific name → use only that solver; falls back to ALL if not found.
+    _hs = cfg.get("heuristic_solver", "ALL")
+    if _hs.upper() == "ALL":
+        heuristic_solver_classes = solver_classes
+    else:
+        heuristic_solver_classes = {n: c for n, c in solver_classes.items() if n == _hs}
+        if not heuristic_solver_classes:
+            logging.warning(
+                "heuristic_solver '%s' not found in resolved solvers — "
+                "falling back to ALL.",
+                _hs,
+            )
+            heuristic_solver_classes = solver_classes
+
     # The run_seed is used for every heuristic in this group so results are
     # tied to a single recorded seed.
     for heuristic_name, heuristic_fn in heuristic_fns.items():
-        for solver_name, solver_cls in solver_classes.items():
+        for solver_name, solver_cls in heuristic_solver_classes.items():
             row = run_heuristic(
                 matrix=matrix,
                 heuristic_name=heuristic_name,
@@ -329,6 +345,7 @@ def run_quick_check(
         "parallel_jobs": 1,
         "solvers": list(cfg.get("solvers", [])),
         "heuristics": list(cfg.get("heuristics", [])),
+        "heuristic_solver": cfg.get("heuristic_solver", "ALL"),
         "_assumptions": list(cfg.get("_assumptions", [])),
     }
 

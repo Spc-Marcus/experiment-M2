@@ -45,6 +45,15 @@ solvers=MaxOneModel,MaxSurfaceModel
 # Multiple heuristics: comma-separated
 heuristics=heuristicA
 
+# ── Heuristic solver ────────────────────────────────────────────────────────────
+# Which solver class to inject as model_class inside each heuristic.
+# ALL  → every solver in 'solvers' is used for each heuristic run, producing
+#        one CSV row per (heuristic, solver) pair.
+# Name → a specific class name (must be listed in 'solvers'); only that solver
+#        is used for heuristic runs.  Falls back to ALL with a warning if the
+#        name is not found.
+heuristic_solver=ALL
+
 # ── Timeouts (seconds) ─────────────────────────────────────────────────────────
 timeout_exact=600
 timeout_heuristic=150
