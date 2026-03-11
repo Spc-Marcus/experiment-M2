@@ -6,9 +6,9 @@ Models possibles:
 
 import logging
 
-from model.max_one_final import MaxOneModel
-from model.max_surface_final import MaxSurfaceModel
-from model.heuristic import heuristic
+from model.final.max_one_final import MaxOneModel
+from model.final.max_surface_final import MaxSurfaceModel
+from model.heuristics.heuristicA import heuristic
 import numpy as np
 from gurobipy import GRB
 

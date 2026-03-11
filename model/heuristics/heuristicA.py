@@ -8,16 +8,20 @@ from model.base import BiclusterModelBase
 logger = logging.getLogger(__name__)
 
 
-def heuristic(
+def heuristicA(
     input_matrix: np.ndarray,
     model_class: Type[BiclusterModelBase],
     error_rate: float = 0.025,
-) -> Tuple[List[int], List[int], bool]:
+    time_limit: int = 3600,
+    seed:int = 1,
+) -> Tuple[List[int], List[int], int]:
     """
-    V3c: Reconstruction du modèle à chaque phase avec seulement les seeds, SANS WarmStart.
+    input_matrix: matrice binaire d'entrée (numpy array).
+    model_class: classe du modèle à utiliser (ex. MaxOneModel, MaxSurfaceModel).
+    error_rate: taux d'erreur maximum autorisé dans la sous-matrice (float entre 0 et 1).
+    time_limit: temps maximum alloué à chaque phase du modèle (en secondes).
 
-    Stratégie: Crée un nouveau modèle à chaque phase avec uniquement
-    les lignes/colonnes potentielles. Pas de WarmStart.
+    return: (row_indices, col_indices, code de succès gurobipy)
     """
     X_problem = input_matrix.copy()
     cols_sorted = np.argsort(X_problem.sum(axis=0))[::-1]
@@ -70,7 +74,7 @@ def heuristic(
         model = model_class(rows_data, cols_data, edges, 0.0)
         model.setParam('OutputFlag', 0)
         model.setParam('MIPGap', 0.05)
-        #model.setParam('TimeLimit', 20)
+        model.setParam('TimeLimit', time_limit)
         model.setParam('Seed', 1)
         model.setParam('IntFeasTol', 1e-9)
         model.setParam('FeasibilityTol', 1e-9)
@@ -106,7 +110,7 @@ def heuristic(
             model2 = model_class(rows_data, cols_data, edges, error_rate)
             model2.setParam('OutputFlag', 0)
             model2.setParam('MIPGap', 0.05)
-            model2.setParam('TimeLimit', 180)
+            model2.setParam('TimeLimit', time_limit)
             model2.setParam('Seed', 1)
             model2.setParam('IntFeasTol', 1e-9)
             model2.setParam('FeasibilityTol', 1e-9)
@@ -149,7 +153,7 @@ def heuristic(
             model3 = model_class(rows_data, cols_data, edges, error_rate)
             model3.setParam('OutputFlag', 0)
             model3.setParam('MIPGap', 0.05)
-            model3.setParam('TimeLimit', 20)
+            model3.setParam('TimeLimit', time_limit)
             model3.setParam('Seed', 1)
             model3.setParam('IntFeasTol', 1e-9)
             model3.setParam('FeasibilityTol', 1e-9)

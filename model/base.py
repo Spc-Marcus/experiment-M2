@@ -60,7 +60,3 @@ class BiclusterModelBase(ABC):
     @abstractmethod
     def get_selected_cols(self) -> List[int]:
         """Retourne les indices des colonnes sélectionnées (variable = 1)."""
-
-
-# Alias de rétro-compatibilité
-MaxOneModelBase = BiclusterModelBase
