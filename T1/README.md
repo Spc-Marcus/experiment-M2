@@ -13,14 +13,27 @@
 
 ```
 T1/
-├── run_experiment.py      # Main CLI runner
+├── run_experiment.py      # Thin CLI entry point (wires pipeline together)
 ├── config.arg             # Working config (quick-test defaults)
 ├── config.arg.example     # Fully documented example config
 ├── README.md              # This file
+├── pipeline/              # Functional modules (one responsibility each)
+│   ├── __init__.py
+│   ├── config.py          # parse_file / build — config parsing & defaults
+│   ├── discovery.py       # discover_solvers / discover_heuristics / resolve_all
+│   ├── metrics.py         # matrix_to_model_inputs / compute_metrics / compute_gap
+│   ├── io.py              # CSV_HEADER / init_csv / append_csv_row / write_json_log
+│   ├── executor.py        # run_exact_solver / run_heuristic (never raises)
+│   ├── planner.py         # plan_runs / print_plan / discover_instances
+│   └── runner.py          # execute_pipeline / run_quick_check
 └── results/               # Created at runtime
     ├── results_<ts>.csv   # One CSV per invocation (all runs)
     └── logs/
         └── *.json         # One JSON log per run
+
+utils/ (repository-level, reusable)
+├── env_info.py            # collect() — git hash, python version, pip freeze
+└── matrix_io.py           # load_csv_matrix() — CSV loader with auto-detection
 ```
 
 ---
