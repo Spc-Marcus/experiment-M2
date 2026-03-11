@@ -1,0 +1,61 @@
+# T1/config.arg.example — Example configuration for run_experiment.py
+# Format: key=value (key=value, no spaces around '=')
+# Lists: comma-separated values
+# Lines starting with '#' are comments
+
+# ── Data source ────────────────────────────────────────────────────────────────
+# Directory containing real CSV instance files (0/1 matrix, comma-sep, no header)
+instances_dir=Mat
+
+# Optional: explicit list of instance filenames inside instances_dir
+# If omitted, all *.csv files in instances_dir are used
+# instances=file1.csv,file2.csv
+
+# ── Synthetic matrices ─────────────────────────────────────────────────────────
+# Set to true to generate synthetic matrices instead of using real instances
+synthetic=true
+
+# Synthetic matrix dimensions and base density
+# Format: L:<rows>,C:<cols>,density:<fraction_of_ones>
+synthetic_specs=L:200,C:200,density:0.1
+
+# ── Seeds (used for synthetic generation AND heuristic randomness) ─────────────
+seeds=1,2,3,4,5
+
+# ── Gamma values (minimum target density of the selected submatrix) ───────────
+# error_rate = 1 - gamma is passed to solvers
+gammas=0.9,0.95,0.99,1.0
+
+# ── Solvers (exact — classes in model/final/) ──────────────────────────────────
+# Format options:
+#   ClassName                        → searches all modules under model/final
+#   module_filename:ClassName        → e.g. max_one_final:MaxOneModel
+#   model.final.module:ClassName     → fully qualified
+# Multiple solvers: comma-separated
+solvers=MaxOneModel,MaxSurfaceModel
+
+# ── Heuristics (functions in model/heuristics/) ────────────────────────────────
+# Format options:
+#   func_name                        → searches all modules under model/heuristics
+#   module_filename:func_name        → e.g. heuristicA:heuristicA
+#   model.heuristics.module:func     → fully qualified
+# Multiple heuristics: comma-separated
+heuristics=heuristicA
+
+# ── Timeouts (seconds) ─────────────────────────────────────────────────────────
+timeout_exact=600
+timeout_heuristic=150
+
+# ── Output ─────────────────────────────────────────────────────────────────────
+output_dir=T1/results
+
+# ── Parallelism ────────────────────────────────────────────────────────────────
+# Number of parallel workers (1 = sequential, >1 uses ThreadPoolExecutor)
+parallel_jobs=1
+
+# ── Flags ──────────────────────────────────────────────────────────────────────
+# dry_run=true  → print planned runs without executing
+dry_run=false
+
+# quick_check=true → run minimal 5×5 validation pipeline
+quick_check=false

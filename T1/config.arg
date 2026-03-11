@@ -1,0 +1,33 @@
+# T1/config.arg — Quick-test configuration
+# Run with: python T1/run_experiment.py --quick-check
+# Or full run: python T1/run_experiment.py
+
+# Use synthetic matrices for quick testing
+synthetic=true
+synthetic_specs=L:10,C:10,density:0.5
+
+# Seeds for matrix generation and heuristic runs
+seeds=1,2
+
+# Gamma values to test (error_rate = 1 - gamma)
+gammas=0.9,0.95
+
+# Solvers from model/final/ (ClassName or module:ClassName)
+solvers=MaxOneModel
+
+# Heuristics from model/heuristics/ (func_name or module:func_name)
+heuristics=heuristicA
+
+# Timeouts
+timeout_exact=120
+timeout_heuristic=60
+
+# Output directory (relative to repository root)
+output_dir=T1/results
+
+# Parallelism (1 = sequential)
+parallel_jobs=1
+
+# Flags
+dry_run=false
+quick_check=false
