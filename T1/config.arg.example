@@ -19,8 +19,11 @@ synthetic=true
 # Format: L:<rows>,C:<cols>,density:<fraction_of_ones>
 synthetic_specs=L:200,C:200,density:0.1
 
-# ── Seeds (used for synthetic generation AND heuristic randomness) ─────────────
-seeds=1,2,3,4,5
+# ── Repetitions ────────────────────────────────────────────────────────────────
+# Number of independent runs per (instance, gamma) pair.
+# Each repetition generates a fresh random seed at runtime, which is recorded
+# in the CSV and JSON log for full reproducibility.
+repetitions=5
 
 # ── Gamma values (minimum target density of the selected submatrix) ───────────
 # error_rate = 1 - gamma is passed to solvers

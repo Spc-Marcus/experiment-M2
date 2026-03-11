@@ -94,14 +94,16 @@ def plan_runs(
     runs: List[Dict[str, Any]] = []
 
     if cfg["synthetic"]:
-        for seed in cfg["seeds"]:
-            iid = f"synthetic_L{cfg['L']}_C{cfg['C']}_d{cfg['density']}_s{seed}"
+        # In dry-run we show repetitions as numbered slots; actual seeds are
+        # assigned dynamically at execution time.
+        for rep in range(cfg["repetitions"]):
+            iid = f"synthetic_L{cfg['L']}_C{cfg['C']}_d{cfg['density']}_rep{rep + 1}"
             for gamma in cfg["gammas"]:
                 for sn in solver_classes:
                     runs.append({
                         "type": "exact",
                         "instance_id": iid,
-                        "seed": seed,
+                        "seed": "<dynamic>",
                         "gamma": gamma,
                         "solver_name": sn,
                     })
@@ -110,7 +112,7 @@ def plan_runs(
                         runs.append({
                             "type": "heuristic",
                             "instance_id": iid,
-                            "seed": seed,
+                            "seed": "<dynamic>",
                             "gamma": gamma,
                             "heuristic_name": hn,
                             "solver_name": sn,
@@ -123,17 +125,17 @@ def plan_runs(
                     runs.append({
                         "type": "exact",
                         "instance_id": iid,
-                        "seed": "NA",
+                        "seed": "<dynamic>",
                         "gamma": gamma,
                         "solver_name": sn,
                     })
                 for hn in heuristic_fns:
-                    for seed in cfg["seeds"]:
+                    for rep in range(cfg["repetitions"]):
                         for sn in solver_classes:
                             runs.append({
                                 "type": "heuristic",
                                 "instance_id": iid,
-                                "seed": seed,
+                                "seed": "<dynamic>",
                                 "gamma": gamma,
                                 "heuristic_name": hn,
                                 "solver_name": sn,

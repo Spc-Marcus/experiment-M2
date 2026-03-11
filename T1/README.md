@@ -74,7 +74,7 @@ comments.  Lists are **comma-separated** values on a single line.
 | `instances` | *(unset)* | Explicit list of CSV filenames inside `instances_dir`; if absent all `*.csv` files are used |
 | `synthetic` | `false` | `true` → generate matrices; `false` → load from `instances_dir` |
 | `synthetic_specs` | `L:50,C:50,density:0.35` | Dimensions and base density for synthetic matrices |
-| `seeds` | `42` | Seeds for matrix generation (synthetic) and heuristic reproducibility |
+| `repetitions` | `5` | Number of independent runs per `(instance, γ)` pair; each run generates a fresh random seed (recorded in CSV/logs) |
 | `gammas` | `0.9,0.95,0.99,1.0` | Target minimum sub-matrix densities; `error_rate = 1 − γ` |
 | `solvers` | *(unset)* | Exact solver class names (see below) |
 | `heuristics` | *(unset)* | Heuristic function names (see below) |
@@ -130,7 +130,7 @@ instance_id,m,n,base_dens,gamma,solver,seed,heuristic,time,status,objective,area
 | `base_dens` | Global density of the input matrix |
 | `gamma` | Target minimum density (config value) |
 | `solver` | Name of the solver class used |
-| `seed` | Seed used (synthetic) or `NA` (real instance exact run) |
+| `seed` | Dynamically generated seed used for this run (synthetic matrix generation + heuristic RNG) |
 | `heuristic` | Heuristic function name, or `NA` for exact runs |
 | `time` | Wall-clock time in seconds |
 | `status` | `optimal` \| `time_limit` \| `error` \| Gurobi status string |
@@ -179,7 +179,7 @@ These assumptions are logged at runtime and stored in every JSON log.
 |-----------|------------------|
 | `instances_dir` absent | Use `Mat` |
 | `solvers` empty and `synthetic=true` | Auto-select the first class found in `model/final` |
-| `seeds` empty | Use `[42]` |
+| `repetitions` not set | Use `5` |
 | `gammas` empty | Use `[0.95]` |
 | `synthetic_specs` absent | `L=50, C=50, density=0.35` |
 | Real CSV separator unknown | Auto-detect from first line; log detection decision |

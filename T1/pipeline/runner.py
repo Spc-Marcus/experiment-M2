@@ -19,6 +19,7 @@ run_quick_check(cfg, csv_path, log_dir, env_info)  -> None  (raises on failure)
 
 import logging
 import os
+import random
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -39,13 +40,20 @@ from pipeline.io import append_csv_row, init_csv  # noqa: E402
 from pipeline.planner import discover_instances  # noqa: E402
 
 
+# ── Seed generation ────────────────────────────────────────────────────────────
+
+def _new_seed() -> int:
+    """Return a fresh random seed in [0, 2**31 - 1] suitable for any RNG."""
+    return random.randint(0, 2**31 - 1)
+
+
 # ── Group execution ────────────────────────────────────────────────────────────
 
 def _execute_group(
     matrix: np.ndarray,
     instance_id: str,
     gamma: float,
-    seed_for_synthetic: Any,
+    run_seed: int,
     base_dens: float,
     solver_classes: Dict[str, Any],
     heuristic_fns: Dict[str, Any],
@@ -56,14 +64,20 @@ def _execute_group(
     assumptions: List[str],
 ) -> None:
     """
-    Execute all exact solvers then all heuristics for one (instance, gamma) group.
+    Execute all exact solvers then all heuristics for one (instance, gamma, seed)
+    group.
 
-    Exact solvers run first so that ``best_known`` can be computed before
-    heuristics are called (needed for the ``gap`` metric).
+    Each call is completely independent:
+      - ``error_rate = 1 − gamma`` is computed locally.
+      - ``best_known`` starts at None and is updated only from this group's exact
+        solvers, so every gamma value is solved in full isolation.
+      - ``run_seed`` drives heuristic reproducibility and, for synthetic matrices,
+        also identifies which matrix was used.
 
-    For synthetic runs only one seed exists per matrix; for real-instance runs
-    all configured seeds are used for the heuristics.
+    Exact solvers run before heuristics so that ``best_known`` is available for
+    the gap metric.
     """
+    # Each gamma is independent: own error_rate, own best_known
     error_rate = 1.0 - gamma
     best_known: Optional[float] = None
 
@@ -77,7 +91,7 @@ def _execute_group(
             timeout=cfg["timeout_exact"],
             instance_id=instance_id,
             gamma=gamma,
-            seed=seed_for_synthetic,
+            seed=run_seed,
             base_dens=base_dens,
             log_dir=log_dir,
             env_info=env_info,
@@ -91,35 +105,28 @@ def _execute_group(
                 best_known = float(obj)
 
     # ── Heuristics ─────────────────────────────────────────────────────────
-    # Synthetic: seed is the matrix-generation seed.
-    # Real: iterate over all cfg["seeds"].
-    seeds_for_heuristics: List[int] = (
-        [int(seed_for_synthetic)]
-        if cfg.get("synthetic") and seed_for_synthetic is not None
-        else [int(s) for s in cfg["seeds"]]
-    )
-
+    # The run_seed is used for every heuristic in this group so results are
+    # tied to a single recorded seed.
     for heuristic_name, heuristic_fn in heuristic_fns.items():
-        for seed in seeds_for_heuristics:
-            for solver_name, solver_cls in solver_classes.items():
-                row = run_heuristic(
-                    matrix=matrix,
-                    heuristic_name=heuristic_name,
-                    heuristic_fn=heuristic_fn,
-                    solver_class=solver_cls,
-                    solver_name=solver_name,
-                    error_rate=error_rate,
-                    timeout=cfg["timeout_heuristic"],
-                    seed=seed,
-                    instance_id=instance_id,
-                    gamma=gamma,
-                    base_dens=base_dens,
-                    best_known=best_known,
-                    log_dir=log_dir,
-                    env_info=env_info,
-                    assumptions=assumptions,
-                )
-                append_csv_row(csv_path, row)
+        for solver_name, solver_cls in solver_classes.items():
+            row = run_heuristic(
+                matrix=matrix,
+                heuristic_name=heuristic_name,
+                heuristic_fn=heuristic_fn,
+                solver_class=solver_cls,
+                solver_name=solver_name,
+                error_rate=error_rate,
+                timeout=cfg["timeout_heuristic"],
+                seed=run_seed,
+                instance_id=instance_id,
+                gamma=gamma,
+                base_dens=base_dens,
+                best_known=best_known,
+                log_dir=log_dir,
+                env_info=env_info,
+                assumptions=assumptions,
+            )
+            append_csv_row(csv_path, row)
 
 
 # ── Parallelism helper ─────────────────────────────────────────────────────────
@@ -194,9 +201,14 @@ def execute_pipeline(
     if cfg["synthetic"]:
         from utils.create_matrix_V2 import create_matrix  # noqa: E402
 
+        # Generate one seed per repetition dynamically.
+        # Each seed is recorded in the CSV/log for full reproducibility.
+        rep_seeds = [_new_seed() for _ in range(cfg["repetitions"])]
+
+        # Groups: each repetition × each gamma is independent
         groups: List[Tuple] = [
             (seed, gamma)
-            for seed in cfg["seeds"]
+            for seed in rep_seeds
             for gamma in cfg["gammas"]
         ]
 
@@ -214,7 +226,7 @@ def execute_pipeline(
                 matrix=matrix,
                 instance_id=iid,
                 gamma=gamma,
-                seed_for_synthetic=seed,
+                run_seed=seed,
                 base_dens=float(matrix.mean()),
                 solver_classes=solver_classes,
                 heuristic_fns=heuristic_fns,
@@ -237,8 +249,8 @@ def execute_pipeline(
             )
             return
 
-        def _run_real(inst_gamma: Tuple) -> None:
-            inst_path, gamma = inst_gamma
+        def _run_real(inst_gamma_seed: Tuple) -> None:
+            inst_path, gamma, run_seed = inst_gamma_seed
             iid = os.path.splitext(os.path.basename(inst_path))[0]
             try:
                 matrix = load_csv_matrix(inst_path)
@@ -249,14 +261,14 @@ def execute_pipeline(
                 logging.warning("Empty matrix for %s — skipped.", inst_path)
                 return
             logging.info(
-                "Instance %s gamma=%.3f: %dx%d dens=%.4f",
-                iid, gamma, *matrix.shape, float(matrix.mean()),
+                "Instance %s gamma=%.3f seed=%d: %dx%d dens=%.4f",
+                iid, gamma, run_seed, *matrix.shape, float(matrix.mean()),
             )
             _execute_group(
                 matrix=matrix,
                 instance_id=iid,
                 gamma=gamma,
-                seed_for_synthetic=None,
+                run_seed=run_seed,
                 base_dens=float(matrix.mean()),
                 solver_classes=solver_classes,
                 heuristic_fns=heuristic_fns,
@@ -267,7 +279,14 @@ def execute_pipeline(
                 assumptions=assumptions,
             )
 
-        groups = [(p, g) for p in instances for g in cfg["gammas"]]
+        # Generate one seed per repetition; pair with every (instance, gamma)
+        rep_seeds = [_new_seed() for _ in range(cfg["repetitions"])]
+        groups = [
+            (p, g, s)
+            for p in instances
+            for g in cfg["gammas"]
+            for s in rep_seeds
+        ]
         _parallel_execute(groups, _run_real, cfg["parallel_jobs"])
 
 
@@ -302,7 +321,7 @@ def run_quick_check(
 
     qcfg: Dict[str, Any] = {
         "L": 5, "C": 5, "density": 0.35,
-        "seeds": [42],
+        "repetitions": 1,
         "gammas": [0.9],
         "synthetic": True,
         "timeout_exact": 60,
@@ -327,7 +346,7 @@ def run_quick_check(
         matrix=matrix,
         instance_id="quick_check_5x5",
         gamma=0.9,
-        seed_for_synthetic=42,
+        run_seed=42,
         base_dens=float(matrix.mean()),
         solver_classes=solver_classes,
         heuristic_fns=heuristic_fns,

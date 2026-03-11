@@ -89,7 +89,7 @@ def build(raw: Dict[str, str]) -> Dict[str, Any]:
     dict[str, Any]  with the following keys:
 
     instances_dir, instances, synthetic, L, C, density,
-    seeds, gammas, solvers, heuristics,
+    repetitions, gammas, solvers, heuristics,
     timeout_exact, timeout_heuristic, output_dir,
     parallel_jobs, dry_run, quick_check, _assumptions
     """
@@ -116,15 +116,12 @@ def build(raw: Dict[str, str]) -> Dict[str, Any]:
     cfg["C"] = int(specs.get("C", 50))
     cfg["density"] = float(specs.get("density", 0.35))
 
-    # ── Seeds ──────────────────────────────────────────────────────────────
-    seeds_raw = raw.get("seeds")
-    if seeds_raw is None:
-        assumptions.append("seeds not set → defaulted to [42]")
-        seeds_raw = "42"
-    cfg["seeds"] = [int(s) for s in _parse_list(seeds_raw)]
-    if not cfg["seeds"]:
-        cfg["seeds"] = [42]
-        assumptions.append("seeds list empty → defaulted to [42]")
+    # ── Repetitions ────────────────────────────────────────────────────────
+    # Number of independent runs per (instance, gamma) pair.  Each run gets a
+    # fresh randomly-generated seed recorded in the CSV/log for reproducibility.
+    if "repetitions" not in raw:
+        assumptions.append("repetitions not set → defaulted to 5")
+    cfg["repetitions"] = max(1, int(raw.get("repetitions", 5)))
 
     # ── Gammas ─────────────────────────────────────────────────────────────
     gammas_raw = raw.get("gammas")
