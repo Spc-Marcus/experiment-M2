@@ -81,8 +81,9 @@ seed:                 # Seed aléatoire (vide = auto)
 rows: 20              # Nombre de lignes (new-gen=1 seulement)
 cols: 15              # Nombre de colonnes (new-gen=1 seulement)
 density: 0.7          # Densité de la matrice générée (new-gen=1 seulement)
-gamma: 0.975          # Densité minimale souhaitée (= 1 - error_rate)
-model: max_one_v2     # Modèle ILP : max_one_v2 ou max_e_r_v2
+gamma: 0.025          # error_rate
+model: max_one_v2     # Modèle ILP : max_one et/ou max_e_r_v2
+heuristic: 1          # Utilisation d'une heuristique
 output_dir: Max-cli/results  # Dossier de sortie
 log_level: INFO       # Niveau de log : DEBUG, INFO, WARNING, ERROR
 log_file:             # Fichier de log (vide = console uniquement)

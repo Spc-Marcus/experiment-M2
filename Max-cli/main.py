@@ -37,7 +37,7 @@ from utils.create_matrix_V2 import create_matrix
 _CLI_DIR = os.path.join(_ROOT, "Max-cli")
 if _CLI_DIR not in sys.path:
     sys.path.insert(0, _CLI_DIR)
-from model_call import find_dense_submatrix  # noqa: E402
+from model_call import find_dense_submatrix 
 
 
 def load_matrix_from_csv(path: str) -> np.ndarray:
@@ -49,6 +49,17 @@ def load_matrix_from_csv(path: str) -> np.ndarray:
             if row:
                 rows.append([int(v.strip()) for v in row])
     return np.array(rows, dtype=int)
+
+
+def save_matrix_csv(matrix: np.ndarray, path: str) -> None:
+    """Sauvegarde une matrice numpy en CSV."""
+    out_dir = os.path.dirname(path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        for row in matrix:
+            writer.writerow(row.tolist())
 
 
 def save_submatrix(
@@ -79,6 +90,12 @@ def save_submatrix(
         f.write(f"Densité réelle : {density:.4f}\n\n")
         f.write(f"Indices de lignes : {sorted_rows}\n")
         f.write(f"Indices de colonnes : {sorted_cols}\n\n")
+        f.write("Matrice originale :\n")
+        f.write("-" * 40 + "\n")
+        for i, row in enumerate(matrix):
+            row_vals = " ".join(str(v) for v in row)
+            f.write(f"  ligne {i:>4} │ {row_vals}\n")
+        f.write("-" * 40 + "\n\n")
         f.write("Sous-matrice (lignes=sélectionnées, colonnes=sélectionnées) :\n")
         f.write("-" * 40 + "\n")
         if sub.size > 0:
@@ -108,9 +125,19 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
     nom = conf.get("nom", "output")
     seed_raw = conf.get("seed", None)
     seed = int(seed_raw) if seed_raw not in (None, "", 0) else int(time.time())
-
+    heuristic = int(conf.get("heuristic", 0))
     gamma = float(conf.get("gamma", 0.975))
-    model = str(conf.get("model", "max_one_v2")).strip()
+    # `model` peut être une chaîne ou une liste (selon utils/parser.py).
+    model_conf = conf.get("model", "max_one")
+    if isinstance(model_conf, list):
+        # Si la liste contient un seul élément, renvoyer cet élément (comportement demandé).
+        if len(model_conf) == 1:
+            model = str(model_conf[0]).strip()
+        else:
+            # Normaliser chaque entrée en chaîne sans espaces superflus.
+            model = [str(m).strip() for m in model_conf]
+    else:
+        model = str(model_conf).strip()
     output_dir = str(conf.get("output_dir", "Max-cli/results"))
 
     # ── Génération ou chargement de la matrice ─────────────────────────────────
@@ -125,6 +152,9 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
         )
         matrix_list = create_matrix(rows_count, cols_count, density, seed)
         matrix = np.array(matrix_list, dtype=int)
+        # Sauvegarde de la matrice générée dans source
+        save_matrix_csv(matrix, source)
+        logger.info("Matrice générée sauvegardée dans '%s'.", source)
     else:
         logger.info("Chargement de la matrice depuis '%s'.", source)
         if not os.path.exists(source):
@@ -139,26 +169,41 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
 
     # ── Appel du modèle ────────────────────────────────────────────────────────
     start = time.time()
-    row_indices, col_indices, success = find_dense_submatrix(
-        matrix, model=model, gamma=gamma
-    )
+    results = []
+    # Supporter un seul modèle ou une liste de modèles.
+    if isinstance(model, list):
+        for m in model:
+            row_indices, col_indices, success = find_dense_submatrix(
+                matrix, model=m, gamma=gamma
+            )
+            results.append((m, row_indices, col_indices, success))
+    else:
+        row_indices, col_indices, success = find_dense_submatrix(
+            matrix, model=model, gamma=gamma, use_heuristic=heuristic
+        )
+        results.append((model, row_indices, col_indices, success))
     elapsed = time.time() - start
 
     logger.info("Temps de résolution : %.2f s.", elapsed)
 
     # ── Sauvegarde des résultats ───────────────────────────────────────────────
     timestamp = int(time.time())
-    output_file = os.path.join(output_dir, f"{nom}_{timestamp}.txt")
-    save_submatrix(matrix, row_indices, col_indices, output_file, gamma, model)
-    logger.info("Résultats sauvegardés dans '%s'.", output_file)
+    os.makedirs(output_dir, exist_ok=True)
 
-    if not success:
-        logger.warning("Aucune sous-matrice dense (gamma=%.4f) trouvée.", gamma)
-    else:
-        print(
-            f"Sous-matrice trouvée : {len(row_indices)} lignes × {len(col_indices)} colonnes "
-            f"— résultats dans '{output_file}'"
-        )
+    for m_name, row_indices, col_indices, success in results:
+        # Construire un nom de fichier sûr à partir du nom du modèle.
+        safe_model = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in str(m_name))
+        output_file = os.path.join(output_dir, f"{nom}_{safe_model}_{timestamp}.txt")
+        save_submatrix(matrix, row_indices, col_indices, output_file, gamma, m_name)
+        logger.info("Résultats sauvegardés dans '%s'.", output_file)
+
+        if not success:
+            logger.warning("Aucune sous-matrice dense (gamma=%.4f) trouvée pour le modèle '%s'.", gamma, m_name)
+        else:
+            print(
+                f"Sous-matrice trouvée pour '{m_name}': {len(row_indices)} lignes × {len(col_indices)} colonnes "
+                f"— résultats dans '{output_file}'"
+            )
 
 
 if __name__ == "__main__":

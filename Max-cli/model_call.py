@@ -1,98 +1,54 @@
 """
-model_call.py – Couche d'appel aux modèles ILP pour Max-cli.
-
-Expose une fonction unique ``find_dense_submatrix`` qui sélectionne
-le modèle demandé (max_one_v2 ou max_e_r_v2) et retourne les indices
-de lignes/colonnes de la plus grande sous-matrice dense trouvée.
+Models possibles:
+- Max_one
+- Max_surface
 """
 
-import os
-import sys
-import logging
-
+from model.max_one_final import MaxOneModel
+from model.max_surface_final import MaxSurfaceModel
+from model.heuristic import heuristic
 import numpy as np
-
-# ── Ajout du chemin racine pour les imports relatifs ──────────────────────────
-_ROOT = os.path.dirname(os.path.dirname(__file__))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
-
-# Les fonctions Gurobi sont dans No-error/ilp_grb.py
-_NO_ERROR = os.path.join(_ROOT, "No-error")
-if _NO_ERROR not in sys.path:
-    sys.path.insert(0, _NO_ERROR)
-
-from ilp_grb import (
-    find_quasi_biclique_max_one_V2,
-    find_quasi_biclique_max_e_r_V2,
-)
-
-logger = logging.getLogger("experiment.model_call")
-
-_MODELS = {
-    "max_one_v2": find_quasi_biclique_max_one_V2,
-    "max_e_r_v2": find_quasi_biclique_max_e_r_V2,
-}
+from gurobipy import GRB
 
 
-def find_dense_submatrix(
-    matrix: np.ndarray,
-    model: str = "max_one_v2",
-    gamma: float = 0.975,
-) -> tuple:
+def find_dense_submatrix(matrix, model="max_one", gamma=0, use_heuristic=0) -> tuple[list[int], list[int], bool]:
     """
-    Trouve la plus grande sous-matrice dense dans ``matrix``.
+    Trouve une sous-matrice dense dans la matrice donnée en utilisant le modèle spécifié.
 
-    Parameters
+    ARGUMENTS:
     ----------
-    matrix : np.ndarray
-        Matrice binaire (0/1) de forme (L, C).
-    model : str
-        Modèle à utiliser : ``"max_one_v2"`` (défaut) ou ``"max_e_r_v2"``.
-    gamma : float
-        Densité minimale souhaitée (0 < gamma <= 1). Correspond à
-        ``1 - error_rate`` dans la formulation ILP interne.
-        Par défaut 0.975 (2.5 % de zéros tolérés).
+    * matrix: matrice d'entrée (numpy array).
+    * model: modèle à utiliser pour trouver la sous-matrice dense (string).
+    * gamma: error rate max dans la sous matrice (float entre 0 et 1).
+    * use_heuristic: 0 pour exact, 1 pour heuristique (int).
 
-    Returns
-    -------
-    rows : list[int]
-        Indices des lignes retenues.
-    cols : list[int]
-        Indices des colonnes retenues.
-    success : bool
-        True si une sous-matrice valide a été trouvée.
-
-    Raises
-    ------
-    ValueError
-        Si le nom de modèle n'est pas reconnu.
+    RETOURNE:
+    ----------
+    * row_indices: indices des lignes de la sous-matrice trouvée.
+    * col_indices: indices des colonnes de la sous-matrice trouvée.
+    * success: booléen indiquant si une solution satisfaisant le seuil gamma a été trouvée.
     """
-    if model not in _MODELS:
-        raise ValueError(
-            f"Modèle inconnu : '{model}'. "
-            f"Valeurs autorisées : {list(_MODELS.keys())}"
-        )
-
-    error_rate = max(0.0, 1.0 - gamma)
-    logger.info(
-        "Appel du modèle '%s' (gamma=%.4f, error_rate=%.4f) "
-        "sur une matrice %dx%d.",
-        model, gamma, error_rate, matrix.shape[0], matrix.shape[1],
-    )
-
-    rows, cols, success = _MODELS[model](matrix, error_rate=error_rate)
-
-    if success:
-        density = (
-            matrix[np.ix_(rows, cols)].mean() if (rows and cols) else 0.0
-        )
-        logger.info(
-            "Sous-matrice trouvée : %d lignes × %d colonnes "
-            "(densité réelle = %.4f).",
-            len(rows), len(cols), density,
-        )
+    if model == "max_one":
+        model_instance = MaxOneModel
+    elif model == "max_surface":
+        model_instance = MaxSurfaceModel
     else:
-        logger.warning("Aucune sous-matrice dense trouvée.")
+        raise ValueError(f"Modèle inconnu : {model}")
+    
+    if use_heuristic == 1:
+        row_indices, col_indices, success = heuristic(matrix, model_instance, error_rate=gamma)
+        return row_indices, col_indices, success
+    else:
+        rows_data = [(i, int(np.sum(matrix[i, :]))) for i in range(matrix.shape[0])]
+        cols_data = [(j, int(np.sum(matrix[:, j]))) for j in range(matrix.shape[1])]
+        edges = [(i, j) for i in range(matrix.shape[0]) for j in range(matrix.shape[1]) if matrix[i, j] == 1]
 
-    return rows, cols, success
+        m = model_instance(rows_data, cols_data, edges, gamma)
+        m.setParam('OutputFlag', 0)
+        m.optimize()
+        row_indices, col_indices, success = [], [], False
+        if m.status == GRB.OPTIMAL:
+            row_indices = m.get_selected_rows()
+            col_indices = m.get_selected_cols()
+            success = True
+        return row_indices, col_indices, success

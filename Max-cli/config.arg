@@ -1,12 +1,13 @@
 new-gen: 1
-source: Mat/toto.csv
+source: Max-cli/Mat/toto.csv
 nom: output
-seed:
-rows: 20
-cols: 15
+seed: 2
+rows: 100
+cols: 100
 density: 0.7
-gamma: 0.975
-model: max_one_v2
+gamma: 0.0
+model: max_one, max_surface
+heuristic: 1
 output_dir: Max-cli/results
 log_level: INFO
 log_file:

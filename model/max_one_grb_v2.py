@@ -1,8 +1,10 @@
 import gurobipy as gp
 from gurobipy import GRB
 
+from model.base import BiclusterModelBase
 
-class MaxOneModel:
+
+class MaxOneModel(BiclusterModelBase):
     def __init__(self, rows_data, cols_data, edges, error_rate: float):
         # Store data
         self.rows_data = rows_data

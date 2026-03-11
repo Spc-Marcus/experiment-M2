@@ -4,7 +4,7 @@ from gurobipy import GRB
 from model.base import BiclusterModelBase
 
 
-class MaxOneModel(BiclusterModelBase):
+class MaxSurfaceModel(BiclusterModelBase):
     def __init__(self, rows_data, cols_data, edges, error_rate: float,env=None):
         # Store data
         self.rows_data = rows_data
@@ -14,9 +14,9 @@ class MaxOneModel(BiclusterModelBase):
 
         # Create model
         if env is not None:
-            self.model = gp.Model("max_one_grb_v3",env=env)
+            self.model = gp.Model("max_surface_grb_v3",env=env)
         else:
-            self.model = gp.Model("max_one_grb_v3")
+            self.model = gp.Model("max_surface_grb_v3")
         self.model.setAttr('ModelSense', GRB.MAXIMIZE)
 
         # Variables
@@ -32,8 +32,8 @@ class MaxOneModel(BiclusterModelBase):
                 self.lp_cells[(row, col)] = (var, val)
 
         # Objective (same as v1)
-        self._ones_expr = gp.quicksum(cell_val * var for var, cell_val in self.lp_cells.values())
-        self.model.setObjective(self._ones_expr, GRB.MAXIMIZE)
+        self._surface_expr = gp.quicksum(cell_val * var for var, cell_val in self.lp_cells.values())
+        self.model.setObjective(self._surface_expr, GRB.MAXIMIZE)
 
         # Structure constraints (same as v1)
         for (row, col), (cell_var, _) in self.lp_cells.items():
@@ -45,11 +45,6 @@ class MaxOneModel(BiclusterModelBase):
         self._err_expr = gp.quicksum((1 - cell_val) * var for var, cell_val in self.lp_cells.values())
         self._tot_expr = gp.quicksum(var for var, _ in self.lp_cells.values())
         self._err_rate_constr = self.model.addConstr(self._err_expr <= self.error_rate * self._tot_expr, name='err_rate')
-
-        # Dynamic helpers
-        self._forced_row_constrs = {}
-        self._forced_col_constrs = {}
-        self._improvement_constr = None
 
     def add_WarmStart(self, rows, cols):
         # Provide a complete and consistent MIP start for all vars (rows, cols, cells)
