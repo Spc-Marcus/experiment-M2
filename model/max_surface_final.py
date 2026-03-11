@@ -1,7 +1,11 @@
+import logging
+
 import gurobipy as gp
 from gurobipy import GRB
 
 from model.base import BiclusterModelBase
+
+logger = logging.getLogger(__name__)
 
 
 class MaxSurfaceModel(BiclusterModelBase):
@@ -11,6 +15,11 @@ class MaxSurfaceModel(BiclusterModelBase):
         self.cols_data = cols_data
         self.edges = set(edges)
         self.error_rate = float(error_rate)
+
+        logger.info(
+            "MaxSurfaceModel : initialisation — %d lignes, %d colonnes, %d arêtes, error_rate=%.4f.",
+            len(rows_data), len(cols_data), len(list(edges)), error_rate,
+        )
 
         # Create model
         if env is not None:
@@ -47,6 +56,7 @@ class MaxSurfaceModel(BiclusterModelBase):
         self._err_rate_constr = self.model.addConstr(self._err_expr <= self.error_rate * self._tot_expr, name='err_rate')
 
     def add_WarmStart(self, rows, cols):
+        logger.debug("MaxSurfaceModel : WarmStart fourni (%d lignes, %d colonnes).", len(rows), len(cols))
         # Provide a complete and consistent MIP start for all vars (rows, cols, cells)
         rows_set = set(rows)
         cols_set = set(cols)
@@ -68,7 +78,15 @@ class MaxSurfaceModel(BiclusterModelBase):
     
     # Solver helpers
     def optimize(self):
+        logger.info("MaxSurfaceModel : lancement de l'optimisation.")
         self.model.optimize()
+        logger.info(
+            "MaxSurfaceModel : optimisation terminée — status=%d%s.",
+            self.model.Status,
+            f", ObjVal={self.model.ObjVal:.4f}" if self.model.Status == GRB.OPTIMAL else "",
+        )
+        if self.model.Status not in (GRB.OPTIMAL, GRB.TIME_LIMIT):
+            logger.warning("MaxSurfaceModel : status inattendu (%d).", self.model.Status)
 
     def getVars(self):
         return self.model.getVars()
@@ -85,7 +103,11 @@ class MaxSurfaceModel(BiclusterModelBase):
         return self.model.Status
 
     def get_selected_rows(self):
-        return [int(v.VarName.split('_')[1]) for v in self.getVars() if v.VarName.startswith('row_') and v.X > 0.5]
+        rows = [int(v.VarName.split('_')[1]) for v in self.getVars() if v.VarName.startswith('row_') and v.X > 0.5]
+        logger.debug("MaxSurfaceModel : %d ligne(s) sélectionnée(s).", len(rows))
+        return rows
 
     def get_selected_cols(self):
-        return [int(v.VarName.split('_')[1]) for v in self.getVars() if v.VarName.startswith('col_') and v.X > 0.5]
+        cols = [int(v.VarName.split('_')[1]) for v in self.getVars() if v.VarName.startswith('col_') and v.X > 0.5]
+        logger.debug("MaxSurfaceModel : %d colonne(s) sélectionnée(s).", len(cols))
+        return cols

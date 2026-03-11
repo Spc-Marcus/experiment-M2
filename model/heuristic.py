@@ -1,9 +1,11 @@
-import sys
+import logging
 from typing import List, Tuple, Type
 
 import numpy as np
 
 from model.base import BiclusterModelBase
+
+logger = logging.getLogger(__name__)
 
 
 def heuristic(
@@ -13,7 +15,7 @@ def heuristic(
 ) -> Tuple[List[int], List[int], bool]:
     """
     V3c: Reconstruction du modèle à chaque phase avec seulement les seeds, SANS WarmStart.
-    
+
     Stratégie: Crée un nouveau modèle à chaque phase avec uniquement
     les lignes/colonnes potentielles. Pas de WarmStart.
     """
@@ -22,9 +24,16 @@ def heuristic(
     rows_sorted = np.argsort(X_problem.sum(axis=1))[::-1]
     m = len(rows_sorted)
     n = len(cols_sorted)
+
+    logger.info(
+        "Heuristique démarrée — matrice %dx%d, error_rate=%.4f, modèle=%s.",
+        m, n, error_rate, model_class.__name__,
+    )
+
     if m == 0 or n == 0:
+        logger.warning("Matrice vide (m=%d, n=%d). Abandon.", m, n)
         return [], [], False
-    
+
     seed_cols = max(n // 3, 2)
     if n > 50:
         step_n = 10
@@ -39,9 +48,12 @@ def heuristic(
             ratio_ones = nb_of_ones / (x * y) if (x * y) > 0 else 0
             if ratio_ones > 0.99:
                 seed_cols = y
-    
+
+    logger.debug("seed_cols déterminé : %d.", seed_cols)
+
     try:
         # PHASE 1: Modèle uniquement sur seed_rows x seed_cols
+        logger.info("Phase 1 : modèle initial sur %d lignes × %d colonnes (seed).", m, seed_cols)
         seed_row_indices = rows_sorted
         seed_col_indices = cols_sorted[:seed_cols]
 
@@ -58,7 +70,7 @@ def heuristic(
         model = model_class(rows_data, cols_data, edges, 0.0)
         model.setParam('OutputFlag', 0)
         model.setParam('MIPGap', 0.05)
-        model.setParam('TimeLimit', 20)
+        #model.setParam('TimeLimit', 20)
         model.setParam('Seed', 1)
         model.setParam('IntFeasTol', 1e-9)
         model.setParam('FeasibilityTol', 1e-9)
@@ -66,17 +78,19 @@ def heuristic(
         model.setParam('NumericFocus', 1)
         model.optimize()
         if model.status != 2:
+            logger.warning("Phase 1 : status non-optimal (%d). Abandon.", model.status)
             return [], [], False
         rw = model.get_selected_rows()
         cl = model.get_selected_cols()
+        logger.info("Phase 1 terminée : %d lignes × %d colonnes sélectionnées.", len(rw), len(cl))
 
         # PHASE 2: Nouveau modèle pour extension colonnes
+        logger.info("Phase 2 : extension des colonnes (relâchement de toutes les colonnes restantes).")
         rem_cols = [c for c in cols_sorted if c not in cl]
-        if len(rw) > 0:
-            rem_cols_sum = X_problem[rw][:, rem_cols].sum(axis=0)
-            potential_cols = [c for idx, c in enumerate(rem_cols) if rem_cols_sum[idx] > 0.9 * len(rw)]
-        else:
-            potential_cols = []
+        # Relâcher toutes les colonnes restantes (ne pas filtrer seulement les 'potential')
+        potential_cols = rem_cols
+
+        logger.debug("Phase 2 : %d colonnes candidates à l'extension.", len(potential_cols))
 
         if potential_cols:
             all_col_indices = cl + potential_cols
@@ -103,16 +117,23 @@ def heuristic(
             if model2.status == 2:
                 rw = model2.get_selected_rows()
                 cl = model2.get_selected_cols()
+                logger.info("Phase 2 terminée : %d lignes × %d colonnes.", len(rw), len(cl))
             else:
+                logger.warning(
+                    "Phase 2 : status non-optimal (%d). Retour au résultat de phase 1.",
+                    model2.status,
+                )
                 return rw, cl, True
+        else:
+            logger.info("Phase 2 : aucune colonne restante, extension ignorée.")
 
         # PHASE 3: Nouveau modèle pour extension lignes
+        logger.info("Phase 3 : extension des lignes (relâchement de toutes les lignes restantes).")
         rem_rows = [r for r in rows_sorted if r not in rw]
-        if len(cl) > 0:
-            rem_rows_sum = X_problem[rem_rows][:, cl].sum(axis=1)
-            potential_rows = [r for idx, r in enumerate(rem_rows) if rem_rows_sum[idx] > 0.5 * len(cl)]
-        else:
-            potential_rows = []
+        # Relâcher toutes les lignes restantes (ne pas filtrer seulement les 'potential')
+        potential_rows = rem_rows
+
+        logger.debug("Phase 3 : %d lignes candidates à l'extension.", len(potential_rows))
 
         if potential_rows:
             all_row_indices = rw + potential_rows
@@ -139,12 +160,24 @@ def heuristic(
             if model3.status == 2:
                 rw = model3.get_selected_rows()
                 cl = model3.get_selected_cols()
+                logger.info("Phase 3 terminée : %d lignes × %d colonnes.", len(rw), len(cl))
             else:
+                logger.warning(
+                    "Phase 3 : status non-optimal (%d). Retour au résultat de phase 2.",
+                    model3.status,
+                )
                 return rw, cl, True
+        else:
+            logger.info("Phase 3 : aucune ligne restante, extension ignorée.")
 
-        return (rw, cl, True) if (rw and cl) else ([], [], False)
+        if rw and cl:
+            logger.info("Heuristique terminée avec succès : %d lignes × %d colonnes.", len(rw), len(cl))
+            return rw, cl, True
+        else:
+            logger.warning("Heuristique terminée sans résultat valide (rw ou cl vide).")
+            return [], [], False
+
     except Exception:
-        print("Exception in V3c")
-        print(sys.exc_info())
+        logger.exception("Exception inattendue dans l'heuristique V3c.")
         return [], [], False
     

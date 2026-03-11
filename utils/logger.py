@@ -12,10 +12,14 @@ def setup_logger(
     """
     Configure et retourne un logger avec le niveau et la destination indiqués.
 
+    Le logger racine (root) est configuré avec les mêmes handlers, de sorte que
+    les loggers de modules (model.heuristic, model.max_one_grb_v2, etc.) qui
+    propagent vers root soient également visibles.
+
     Parameters
     ----------
     name : str
-        Nom du logger (par défaut "experiment").
+        Nom du logger retourné (par défaut "experiment").
     level : str
         Niveau de log parmi DEBUG, INFO, WARNING, ERROR, CRITICAL.
         Non sensible à la casse. Par défaut "INFO".
@@ -36,13 +40,6 @@ def setup_logger(
     """
     numeric_level = getattr(logging, level.upper(), logging.INFO)
 
-    logger = logging.getLogger(name)
-    logger.setLevel(numeric_level)
-
-    # Évite les handlers en double si le logger est déjà configuré
-    if logger.handlers:
-        logger.handlers.clear()
-
     formatter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -52,7 +49,8 @@ def setup_logger(
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+
+    handlers: list[logging.Handler] = [console_handler]
 
     # Handler fichier (optionnel)
     if log_file:
@@ -62,6 +60,20 @@ def setup_logger(
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(numeric_level)
         file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        handlers.append(file_handler)
+
+    # Configure le logger racine pour que les loggers de modules propagent
+    # correctement (model.heuristic, model.max_one_grb_v2, model_call…).
+    root = logging.getLogger()
+    root.setLevel(numeric_level)
+    root.handlers.clear()
+    for h in handlers:
+        root.addHandler(h)
+
+    # Le logger nommé ne rajoute pas ses propres handlers (il propage vers root).
+    logger = logging.getLogger(name)
+    logger.setLevel(numeric_level)
+    logger.propagate = True
 
     return logger
+

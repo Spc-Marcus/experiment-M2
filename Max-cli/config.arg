@@ -1,9 +1,9 @@
 new-gen: 1
 source: Max-cli/Mat/toto.csv
 nom: output
-seed: 2
-rows: 100
-cols: 100
+seed: 42
+rows: 200
+cols: 200
 density: 0.7
 gamma: 0.0
 model: max_one, max_surface

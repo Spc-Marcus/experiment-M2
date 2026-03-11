@@ -69,6 +69,7 @@ def save_submatrix(
     output_path: str,
     gamma: float,
     model: str,
+    model_time: float = None,
 ) -> None:
     """Sauvegarde la sous-matrice dans un fichier texte lisible."""
     out_dir = os.path.dirname(output_path)
@@ -84,6 +85,8 @@ def save_submatrix(
         f.write("  Résultat Max-cli – Sous-matrice dense\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"Modèle utilisé : {model}\n")
+        if model_time is not None:
+            f.write(f"Temps de résolution du modèle : {model_time:.2f} s\n")
         f.write(f"Gamma (densité min) : {gamma}\n")
         f.write(f"Dimensions originales : {matrix.shape[0]} lignes × {matrix.shape[1]} colonnes\n\n")
         f.write(f"Sous-matrice trouvée : {len(sorted_rows)} lignes × {len(sorted_cols)} colonnes\n")
@@ -170,18 +173,22 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
     # ── Appel du modèle ────────────────────────────────────────────────────────
     start = time.time()
     results = []
-    # Supporter un seul modèle ou une liste de modèles.
+    # Supporter un seul modèle ou une liste de modèles. Mesurer le temps par modèle.
     if isinstance(model, list):
         for m in model:
+            m_start = time.time()
             row_indices, col_indices, success = find_dense_submatrix(
-                matrix, model=m, gamma=gamma
+                matrix, model=m, gamma=gamma, use_heuristic=heuristic
             )
-            results.append((m, row_indices, col_indices, success))
+            m_elapsed = time.time() - m_start
+            results.append((m, row_indices, col_indices, success, m_elapsed))
     else:
+        m_start = time.time()
         row_indices, col_indices, success = find_dense_submatrix(
             matrix, model=model, gamma=gamma, use_heuristic=heuristic
         )
-        results.append((model, row_indices, col_indices, success))
+        m_elapsed = time.time() - m_start
+        results.append((model, row_indices, col_indices, success, m_elapsed))
     elapsed = time.time() - start
 
     logger.info("Temps de résolution : %.2f s.", elapsed)
@@ -190,11 +197,11 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
     timestamp = int(time.time())
     os.makedirs(output_dir, exist_ok=True)
 
-    for m_name, row_indices, col_indices, success in results:
+    for m_name, row_indices, col_indices, success, m_time in results:
         # Construire un nom de fichier sûr à partir du nom du modèle.
         safe_model = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in str(m_name))
         output_file = os.path.join(output_dir, f"{nom}_{safe_model}_{timestamp}.txt")
-        save_submatrix(matrix, row_indices, col_indices, output_file, gamma, m_name)
+        save_submatrix(matrix, row_indices, col_indices, output_file, gamma, m_name, model_time=m_time)
         logger.info("Résultats sauvegardés dans '%s'.", output_file)
 
         if not success:
@@ -202,7 +209,7 @@ def main(config_path: str = "Max-cli/config.arg") -> None:
         else:
             print(
                 f"Sous-matrice trouvée pour '{m_name}': {len(row_indices)} lignes × {len(col_indices)} colonnes "
-                f"— résultats dans '{output_file}'"
+                f"— résultats dans '{output_file}' (temps={m_time:.2f}s)"
             )
 
 
