@@ -1,17 +1,17 @@
 """
-T1/pipeline/executor.py — Execute individual solver and heuristic runs.
+T1/pipeline/executor.py — Exécution individuelle des solveurs et heuristiques.
 
-Each public function:
-  1. Runs one solver / heuristic with the given parameters.
-  2. Catches *all* exceptions so the pipeline never crashes on a bad run.
-  3. Writes a detailed JSON log via ``pipeline.io.write_json_log``.
-  4. Returns a CSV row dict ready for ``pipeline.io.append_csv_row``.
+Chaque fonction publique :
+  1. Exécute un solveur / heuristique avec les paramètres donnés.
+  2. Capture *toutes* les exceptions afin que le pipeline ne plante jamais.
+  3. Écrit un journal JSON détaillé via ``pipeline.io.write_json_log``.
+  4. Retourne un dictionnaire de ligne CSV prêt pour ``pipeline.io.append_csv_row``.
 
-Gurobi status codes are mapped to readable strings; unknown codes are
-returned as ``"unknown_<code>"``.
+Les codes de statut Gurobi sont traduits en chaînes lisibles ; les codes
+inconnus sont retournés sous la forme ``"unknown_<code>"``.
 
-Public API
-----------
+API publique
+------------
 normalize_status(raw) -> str
 run_exact_solver(...)  -> dict
 run_heuristic(...)     -> dict
@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-# ── Root path bootstrap ────────────────────────────────────────────────────────
+# ── Bootstrap du chemin racine ────────────────────────────────────────────────
 _T1_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _ROOT = os.path.dirname(_T1_DIR)
 for _p in (_ROOT, _T1_DIR):
@@ -38,7 +38,7 @@ for _p in (_ROOT, _T1_DIR):
 from pipeline.io import write_json_log  # noqa: E402
 from pipeline.metrics import compute_gap, compute_metrics, matrix_to_model_inputs  # noqa: E402
 
-# ── Gurobi status mapping ──────────────────────────────────────────────────────
+# ── Correspondance des statuts Gurobi ─────────────────────────────────────────
 _GUROBI_STATUS: Dict[int, str] = {
     1: "loaded",
     2: "optimal",
@@ -59,7 +59,7 @@ _GUROBI_STATUS: Dict[int, str] = {
 
 
 def normalize_status(raw: Any) -> str:
-    """Map a raw solver status code to a human-readable string."""
+    """Traduit un code de statut brut du solveur en chaîne lisible."""
     if isinstance(raw, bool):
         return "optimal" if raw else "error"
     if isinstance(raw, int):
@@ -71,7 +71,7 @@ def normalize_status(raw: Any) -> str:
     return str(raw)
 
 
-# ── Internal helpers ───────────────────────────────────────────────────────────
+# ── Fonctions utilitaires internes ────────────────────────────────────────────
 
 def _base_result(
     instance_id: str,
@@ -83,7 +83,7 @@ def _base_result(
     seed: Any,
     heuristic: str = "NA",
 ) -> Dict[str, Any]:
-    """Return an error-state CSV row template."""
+    """Retourne un modèle de ligne CSV en état d'erreur."""
     return {
         "instance_id": instance_id,
         "m": m,
@@ -102,7 +102,7 @@ def _base_result(
     }
 
 
-# ── Exact solver ───────────────────────────────────────────────────────────────
+# ── Solveur exact ─────────────────────────────────────────────────────────────
 
 def run_exact_solver(
     matrix: np.ndarray,
@@ -119,29 +119,29 @@ def run_exact_solver(
     assumptions: List[str],
 ) -> Dict[str, Any]:
     """
-    Execute one exact solver run.
+    Exécute une fois un solveur exact.
 
-    Never raises — all exceptions are caught, written to the JSON log with
-    ``status='error'``, and the CSV row is returned for recording.
+    Ne lève jamais d'exception — toutes les exceptions sont capturées, écrites
+    dans le journal JSON avec ``status='error'``, et la ligne CSV est retournée.
 
-    Parameters
+    Paramètres
     ----------
-    matrix       : binary input matrix
-    solver_name  : display name for the solver
-    solver_class : BiclusterModelBase subclass to instantiate
-    error_rate   : 1 − γ, passed to the model constructor
-    timeout      : seconds passed via ``model.setParam('TimeLimit', ...)``
-    instance_id  : label used in CSV and log filename
-    gamma        : target density (stored for reference)
-    seed         : synthetic seed (or ``'NA'`` for real instances)
-    base_dens    : global density of the input matrix
-    log_dir      : directory to write the JSON log
-    env_info     : collected environment metadata
-    assumptions  : list of auto-assumption strings for this session
+    matrix       : matrice d'entrée binaire
+    solver_name  : nom d'affichage du solveur
+    solver_class : sous-classe de BiclusterModelBase à instancier
+    error_rate   : 1 − γ, transmis au constructeur du modèle
+    timeout      : secondes passées via ``model.setParam('TimeLimit', ...)``
+    instance_id  : libellé utilisé dans le CSV et le nom du fichier log
+    gamma        : densité cible (stockée pour référence)
+    seed         : graine synthétique (ou ``'NA'`` pour les instances réelles)
+    base_dens    : densité globale de la matrice d'entrée
+    log_dir      : répertoire où écrire le journal JSON
+    env_info     : métadonnées d'environnement collectées
+    assumptions  : liste des hypothèses auto-appliquées pour cette session
 
-    Returns
-    -------
-    dict  — CSV row compatible with ``pipeline.io.CSV_HEADER``
+    Retourne
+    --------
+    dict  — ligne CSV compatible avec ``pipeline.io.CSV_HEADER``
     """
     m, n = matrix.shape
     run_id = f"{instance_id}__{solver_name}__g{gamma}__s{seed}__{int(time.time() * 1000)}"
@@ -171,7 +171,7 @@ def run_exact_solver(
         try:
             model.setParam("TimeLimit", timeout)
         except Exception as exc:
-            logging.warning("setParam('TimeLimit') failed for %s: %s", solver_name, exc)
+            logging.warning("setParam('TimeLimit') a échoué pour %s : %s", solver_name, exc)
             log["setparam_timelimit_warning"] = str(exc)
 
         try:
@@ -191,7 +191,7 @@ def run_exact_solver(
             selected_rows = model.get_selected_rows()
             selected_cols = model.get_selected_cols()
         except Exception as exc:
-            logging.warning("get_selected_rows/cols failed for %s: %s", solver_name, exc)
+            logging.warning("get_selected_rows/cols a échoué pour %s : %s", solver_name, exc)
             log["get_solution_warning"] = str(exc)
 
         model_obj: Optional[float] = None
@@ -220,7 +220,7 @@ def run_exact_solver(
         result["time"] = round(time.time() - t0, 4)
         log["traceback"] = traceback.format_exc()
         logging.error(
-            "Unhandled error in exact solver %s:\n%s", solver_name, log["traceback"]
+            "Erreur non gérée dans le solveur exact %s :\n%s", solver_name, log["traceback"]
         )
 
     log["csv_row"] = result
@@ -228,7 +228,7 @@ def run_exact_solver(
     return result
 
 
-# ── Heuristic ──────────────────────────────────────────────────────────────────
+# ── Heuristique ───────────────────────────────────────────────────────────────
 
 def run_heuristic(
     matrix: np.ndarray,
@@ -248,23 +248,24 @@ def run_heuristic(
     assumptions: List[str],
 ) -> Dict[str, Any]:
     """
-    Execute one heuristic run with introspection-based parameter matching.
+    Exécute une heuristique avec correspondance de paramètres par introspection.
 
-    The function signature of *heuristic_fn* is inspected via
-    ``inspect.signature`` and only parameters present in our known set
-    (``input_matrix``, ``model_class``, ``error_rate``, ``time_limit``,
-    ``seed``) are forwarded.  Unknown *required* positional parameters
-    cause a ``ValueError`` → the run is recorded with ``status='error'``.
+    La signature de *heuristic_fn* est inspectée via ``inspect.signature`` et
+    seuls les paramètres présents dans l'ensemble connu (``input_matrix``,
+    ``model_class``, ``error_rate``, ``time_limit``, ``seed``) sont transmis.
+    Les paramètres positionnels requis inconnus provoquent une ``ValueError``
+    → l'exécution est enregistrée avec ``status='error'``.
 
-    ``random.seed`` and ``numpy.random.seed`` are both set to *seed* before
-    the call to guarantee reproducibility regardless of the heuristic's
-    internal RNG.
+    ``random.seed`` et ``numpy.random.seed`` sont tous deux fixés à *seed*
+    avant l'appel pour garantir la reproductibilité quel que soit le générateur
+    aléatoire interne de l'heuristique.
 
-    Never raises — all exceptions are caught, written to the JSON log.
+    Ne lève jamais d'exception — toutes les exceptions sont capturées dans le
+    journal JSON.
 
-    Returns
-    -------
-    dict  — CSV row compatible with ``pipeline.io.CSV_HEADER``
+    Retourne
+    --------
+    dict  — ligne CSV compatible avec ``pipeline.io.CSV_HEADER``
     """
     m, n = matrix.shape
     run_id = (
@@ -291,7 +292,7 @@ def run_heuristic(
         "import_path": getattr(heuristic_fn, "__module__", "unknown"),
     }
 
-    # Fix random seeds for reproducibility
+    # Fixation des graines aléatoires pour la reproductibilité
     random.seed(seed)
     np.random.seed(seed)
 
@@ -320,8 +321,8 @@ def run_heuristic(
                     pos_args.append(_param_map[pname])
                 elif param.default is inspect.Parameter.empty:
                     raise ValueError(
-                        f"Heuristic '{heuristic_name}' requires unknown positional "
-                        f"parameter '{pname}' — cannot call."
+                        f"L'heuristique '{heuristic_name}' requiert le paramètre "
+                        f"positionnel inconnu '{pname}' — appel impossible."
                     )
             elif (
                 param.kind == inspect.Parameter.KEYWORD_ONLY
@@ -332,7 +333,7 @@ def run_heuristic(
         heuristic_result = heuristic_fn(*pos_args, **kw_args)
         elapsed = time.time() - t0
 
-        # Unpack (rows, cols[, status]) result
+        # Déballage du résultat (rows, cols[, status])
         if isinstance(heuristic_result, (tuple, list)) and len(heuristic_result) >= 2:
             selected_rows = list(heuristic_result[0] or [])
             selected_cols = list(heuristic_result[1] or [])
@@ -362,7 +363,7 @@ def run_heuristic(
         result["time"] = round(time.time() - t0, 4)
         log["traceback"] = traceback.format_exc()
         logging.error(
-            "Unhandled error in heuristic %s:\n%s", heuristic_name, log["traceback"]
+            "Erreur non gérée dans l'heuristique %s :\n%s", heuristic_name, log["traceback"]
         )
 
     log["csv_row"] = result

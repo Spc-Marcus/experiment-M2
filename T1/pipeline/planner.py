@@ -1,15 +1,15 @@
 """
-T1/pipeline/planner.py — Build the flat run plan (dry-run support).
+T1/pipeline/planner.py — Construction du plan d'exécution plat (support dry-run).
 
-The plan is a list of lightweight dicts describing every run that *would*
-be executed, without actually running anything.  Used both by dry_run mode
-(printed to stdout) and by the runner for iteration.
+Le plan est une liste de dicts légers décrivant chaque exécution qui *serait*
+lancée, sans rien exécuter réellement. Utilisé à la fois par le mode dry_run
+(affiché sur stdout) et par le runner pour l'itération.
 
-Public API
-----------
-discover_instances(cfg, root) -> list[str]   — CSV file paths
+API publique
+------------
+discover_instances(cfg, root) -> list[str]   — chemins vers les fichiers CSV
 plan_runs(cfg, all_solvers, all_heuristics, root) -> list[dict]
-print_plan(runs)                             — pretty-print to stdout
+print_plan(runs)                             — affichage formaté sur stdout
 """
 
 import logging
@@ -17,7 +17,7 @@ import os
 import sys
 from typing import Any, Dict, List
 
-# ── Root path bootstrap ────────────────────────────────────────────────────────
+# ── Bootstrap du chemin racine ────────────────────────────────────────────────
 _T1_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _ROOT = os.path.dirname(_T1_DIR)
 for _p in (_ROOT, _T1_DIR):
@@ -29,18 +29,19 @@ from pipeline.discovery import resolve_all  # noqa: E402
 
 def discover_instances(cfg: Dict[str, Any], root: str) -> List[str]:
     """
-    Return a sorted list of CSV file paths for real (non-synthetic) instances.
+    Retourne une liste triée de chemins vers les fichiers CSV pour les instances
+    réelles (non synthétiques).
 
-    Resolution order
-    ----------------
-    1. If ``cfg["instances"]`` is set, those filenames are used (relative to
-       ``instances_dir`` unless already absolute).
-    2. Otherwise, all ``*.csv`` files inside ``instances_dir`` are returned.
+    Ordre de résolution
+    -------------------
+    1. Si ``cfg["instances"]`` est défini, ces noms de fichiers sont utilisés
+       (relatifs à ``instances_dir`` sauf s'ils sont déjà absolus).
+    2. Sinon, tous les fichiers ``*.csv`` dans ``instances_dir`` sont retournés.
 
-    Parameters
+    Paramètres
     ----------
-    cfg  : resolved config dict from ``pipeline.config.build``
-    root : repository root directory
+    cfg  : dict de configuration résolu par ``pipeline.config.build``
+    root : répertoire racine du dépôt
     """
     instances_dir: str = cfg["instances_dir"]
     if not os.path.isabs(instances_dir):
@@ -53,7 +54,7 @@ def discover_instances(cfg: Dict[str, Any], root: str) -> List[str]:
         ]
 
     if not os.path.isdir(instances_dir):
-        logging.warning("instances_dir not found: %s", instances_dir)
+        logging.warning("instances_dir introuvable : %s", instances_dir)
         return []
 
     return sorted(
@@ -70,29 +71,29 @@ def plan_runs(
     root: str,
 ) -> List[Dict[str, Any]]:
     """
-    Build the complete flat list of run-description dicts.
+    Construit la liste complète et plate des dicts de description d'exécution.
 
-    Each dict contains at minimum:
+    Chaque dict contient au minimum :
       ``type``, ``instance_id``, ``gamma``, ``solver_name``, ``seed``
 
-    Heuristic runs additionally contain ``heuristic_name``.
+    Les exécutions heuristiques contiennent également ``heuristic_name``.
 
-    This function does **not** execute anything.
+    Cette fonction n'exécute **rien**.
 
-    Parameters
+    Paramètres
     ----------
-    cfg            : resolved config dict
-    all_solvers    : registry from ``discovery.discover_solvers``
-    all_heuristics : registry from ``discovery.discover_heuristics``
-    root           : repository root directory
+    cfg            : dict de configuration résolu
+    all_solvers    : registre de ``discovery.discover_solvers``
+    all_heuristics : registre de ``discovery.discover_heuristics``
+    root           : répertoire racine du dépôt
 
-    Returns
-    -------
+    Retourne
+    --------
     list[dict]
     """
     solver_classes, heuristic_fns, _ = resolve_all(cfg, all_solvers, all_heuristics)
 
-    # Determine which solvers to use for heuristic plan entries
+    # Détermine quels solveurs utiliser pour les entrées du plan heuristique
     _hs = cfg.get("heuristic_solver", "ALL")
     if _hs.upper() == "ALL":
         heuristic_solver_classes = solver_classes
@@ -104,8 +105,8 @@ def plan_runs(
     runs: List[Dict[str, Any]] = []
 
     if cfg["synthetic"]:
-        # In dry-run we show repetitions as numbered slots; actual seeds are
-        # assigned dynamically at execution time.
+        # En dry-run, les répétitions sont affichées comme des créneaux numérotés ;
+        # les graines réelles sont assignées dynamiquement à l'exécution.
         for rep in range(cfg["repetitions"]):
             iid = f"synthetic_L{cfg['L']}_C{cfg['C']}_d{cfg['density']}_rep{rep + 1}"
             for gamma in cfg["gammas"]:
@@ -113,7 +114,7 @@ def plan_runs(
                     runs.append({
                         "type": "exact",
                         "instance_id": iid,
-                        "seed": "<dynamic>",
+                        "seed": "<dynamique>",
                         "gamma": gamma,
                         "solver_name": sn,
                     })
@@ -122,7 +123,7 @@ def plan_runs(
                         runs.append({
                             "type": "heuristic",
                             "instance_id": iid,
-                            "seed": "<dynamic>",
+                            "seed": "<dynamique>",
                             "gamma": gamma,
                             "heuristic_name": hn,
                             "solver_name": sn,
@@ -135,7 +136,7 @@ def plan_runs(
                     runs.append({
                         "type": "exact",
                         "instance_id": iid,
-                        "seed": "<dynamic>",
+                        "seed": "<dynamique>",
                         "gamma": gamma,
                         "solver_name": sn,
                     })
@@ -145,7 +146,7 @@ def plan_runs(
                             runs.append({
                                 "type": "heuristic",
                                 "instance_id": iid,
-                                "seed": "<dynamic>",
+                                "seed": "<dynamique>",
                                 "gamma": gamma,
                                 "heuristic_name": hn,
                                 "solver_name": sn,
@@ -155,23 +156,23 @@ def plan_runs(
 
 
 def print_plan(runs: List[Dict[str, Any]]) -> None:
-    """Pretty-print the dry-run plan to stdout."""
-    print(f"\nDRY RUN — {len(runs)} planned run(s):\n")
+    """Affiche le plan dry-run de façon formatée sur stdout."""
+    print(f"\nDRY RUN — {len(runs)} exécution(s) planifiée(s) :\n")
     for i, r in enumerate(runs, 1):
         if r["type"] == "exact":
             print(
                 f"  [{i:>4}] EXACT   "
                 f"instance={r['instance_id']}  "
                 f"gamma={r['gamma']}  "
-                f"solver={r['solver_name']}  "
-                f"seed={r['seed']}"
+                f"solveur={r['solver_name']}  "
+                f"graine={r['seed']}"
             )
         else:
             print(
                 f"  [{i:>4}] HEUR    "
                 f"instance={r['instance_id']}  "
                 f"gamma={r['gamma']}  "
-                f"solver={r['solver_name']}  "
-                f"heuristic={r['heuristic_name']}  "
-                f"seed={r['seed']}"
+                f"solveur={r['solver_name']}  "
+                f"heuristique={r['heuristic_name']}  "
+                f"graine={r['seed']}"
             )

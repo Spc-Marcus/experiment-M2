@@ -1,15 +1,15 @@
 """
-T1/pipeline/io.py — Thread-safe CSV and JSON I/O for experiment results.
+T1/pipeline/io.py — Écriture CSV et JSON thread-safe pour les résultats d'expériences.
 
-The CSV header is defined here as the single source of truth; every other
-module that needs column names imports ``CSV_HEADER`` from here.
+L'en-tête CSV est défini ici comme unique source de vérité ; tout autre
+module ayant besoin des noms de colonnes importe ``CSV_HEADER`` depuis ici.
 
-Public API
-----------
-CSV_HEADER        : list[str]  — the canonical column order
-init_csv(path)    — create / overwrite the results CSV with the header
-append_csv_row(path, row) — append one result row (thread-safe)
-write_json_log(log_dir, run_id, data) -> str  — write a per-run JSON log
+API publique
+------------
+CSV_HEADER        : list[str]  — ordre canonique des colonnes
+init_csv(path)    — crée / écrase le CSV de résultats avec l'en-tête
+append_csv_row(path, row) — ajoute une ligne de résultat (thread-safe)
+write_json_log(log_dir, run_id, data) -> str  — écrit un journal JSON par exécution
 """
 
 import csv
@@ -18,26 +18,26 @@ import os
 import threading
 from typing import Any, Dict
 
-# ── Canonical CSV header ───────────────────────────────────────────────────────
+# ── En-tête CSV canonique ──────────────────────────────────────────────────────
 CSV_HEADER = [
     "instance_id", "m", "n", "base_dens", "gamma", "solver",
     "seed", "heuristic", "time", "status", "objective", "area",
     "density", "gap",
 ]
 
-# ── Thread-safety for concurrent CSV writes ───────────────────────────────────
+# ── Thread-safety pour les écritures CSV concurrentes ────────────────────────
 _csv_lock = threading.Lock()
 
 
 def init_csv(csv_path: str) -> None:
-    """Create (or overwrite) the results CSV and write the standard header."""
+    """Crée (ou écrase) le CSV de résultats et écrit l'en-tête standard."""
     os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         csv.DictWriter(f, fieldnames=CSV_HEADER).writeheader()
 
 
 def append_csv_row(csv_path: str, row: Dict[str, Any]) -> None:
-    """Append one result row to *csv_path* (thread-safe via module-level lock)."""
+    """Ajoute une ligne de résultat à *csv_path* (thread-safe via verrou de module)."""
     with _csv_lock:
         with open(csv_path, "a", newline="", encoding="utf-8") as f:
             csv.DictWriter(f, fieldnames=CSV_HEADER).writerow(row)
@@ -45,20 +45,20 @@ def append_csv_row(csv_path: str, row: Dict[str, Any]) -> None:
 
 def write_json_log(log_dir: str, run_id: str, data: Dict[str, Any]) -> str:
     """
-    Serialise *data* as pretty-printed JSON in ``<log_dir>/<safe_run_id>.json``.
+    Sérialise *data* en JSON indenté dans ``<log_dir>/<run_id_sûr>.json``.
 
-    Characters in *run_id* that are not alphanumeric or in ``-_.`` are
-    replaced with ``_`` to produce a safe filename.
+    Les caractères de *run_id* qui ne sont pas alphanumériques ou dans
+    ``-_.`` sont remplacés par ``_`` pour produire un nom de fichier sûr.
 
-    Parameters
+    Paramètres
     ----------
-    log_dir : str  — directory to write to (created if absent)
-    run_id  : str  — unique run identifier
-    data    : dict — payload to serialise (``default=str`` handles unknowns)
+    log_dir : str  — répertoire de destination (créé si absent)
+    run_id  : str  — identifiant unique de l'exécution
+    data    : dict — contenu à sérialiser (``default=str`` gère les inconnus)
 
-    Returns
-    -------
-    str : absolute path of the written file
+    Retourne
+    --------
+    str : chemin absolu du fichier écrit
     """
     os.makedirs(log_dir, exist_ok=True)
     safe_id = "".join(

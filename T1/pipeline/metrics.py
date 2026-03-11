@@ -1,10 +1,11 @@
 """
-T1/pipeline/metrics.py — Metric computation for biclustering runs.
+T1/pipeline/metrics.py — Calcul des métriques pour les exécutions de biclustering.
 
-All functions are pure (no side effects) and can be unit-tested independently.
+Toutes les fonctions sont pures (sans effets de bord) et peuvent être
+testées unitairement de façon indépendante.
 
-Public API
-----------
+API publique
+------------
 matrix_to_model_inputs(matrix) -> (rows_data, cols_data, edges)
 compute_metrics(matrix, row_indices, col_indices) -> (objective, area, density)
 compute_gap(best_known, objective) -> float | 'NA'
@@ -23,18 +24,18 @@ def matrix_to_model_inputs(
     List[Tuple[int, int]],
 ]:
     """
-    Convert a binary NumPy matrix to the three inputs required by
+    Convertit une matrice NumPy binaire en trois entrées requises par
     ``BiclusterModelBase.__init__``.
 
-    Parameters
+    Paramètres
     ----------
-    matrix : np.ndarray  shape (m, n), dtype int (0/1 values)
+    matrix : np.ndarray  forme (m, n), dtype int (valeurs 0/1)
 
-    Returns
-    -------
-    rows_data : list of (row_index, row_degree)
-    cols_data : list of (col_index, col_degree)
-    edges     : list of (row_index, col_index)  for every cell == 1
+    Retourne
+    --------
+    rows_data : liste de (indice_ligne, degré_ligne)
+    cols_data : liste de (indice_colonne, degré_colonne)
+    edges     : liste de (indice_ligne, indice_colonne) pour chaque cellule == 1
     """
     m, n = matrix.shape
     rows_data: List[Tuple[int, int]] = [
@@ -55,19 +56,19 @@ def compute_metrics(
     col_indices: List[int],
 ) -> Tuple[int, int, float]:
     """
-    Compute objective, area, and density for a selected sub-matrix.
+    Calcule l'objectif, la surface et la densité d'une sous-matrice sélectionnée.
 
-    Parameters
+    Paramètres
     ----------
-    matrix      : full input binary matrix
-    row_indices : selected row indices (may be unsorted)
-    col_indices : selected column indices (may be unsorted)
+    matrix      : matrice binaire d'entrée complète
+    row_indices : indices de lignes sélectionnées (peuvent être non triés)
+    col_indices : indices de colonnes sélectionnées (peuvent être non triés)
 
-    Returns
-    -------
-    objective : number of 1s in the selected sub-matrix
-    area      : #selected_rows × #selected_cols
-    density   : objective / area  (0.0 when area == 0)
+    Retourne
+    --------
+    objective : nombre de 1 dans la sous-matrice sélectionnée
+    area      : #lignes_sélectionnées × #colonnes_sélectionnées
+    density   : objective / area  (0.0 si area == 0)
     """
     if not row_indices or not col_indices:
         return 0, 0, 0.0
@@ -80,11 +81,11 @@ def compute_metrics(
 
 def compute_gap(best_known: Optional[float], objective: Any) -> Any:
     """
-    Return ``100 × (best_known − objective) / best_known`` as a percentage.
+    Retourne ``100 × (best_known − objective) / best_known`` en pourcentage.
 
-    Returns ``'NA'`` when:
-      - *best_known* is None or ≤ 0
-      - *objective* is not an integer (e.g. ``'NA'`` from a failed run)
+    Retourne ``'NA'`` lorsque :
+      - *best_known* est None ou ≤ 0
+      - *objective* n'est pas un entier (ex. ``'NA'`` d'une exécution échouée)
     """
     if best_known is None or best_known <= 0 or not isinstance(objective, int):
         return "NA"

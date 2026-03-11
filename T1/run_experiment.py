@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
-T1/run_experiment.py — CLI entry point for the T1 experiment pipeline.
+T1/run_experiment.py — Point d'entrée CLI du pipeline d'expérimentation T1.
 
-This file is intentionally thin: it only handles argument parsing and
-wires the components together.  All logic lives in ``T1/pipeline/``.
+Ce fichier est intentionnellement minimal : il gère uniquement l'analyse des
+arguments et relie les composants entre eux. Toute la logique se trouve dans
+``T1/pipeline/``.
 
-Usage
------
-    python T1/run_experiment.py [config_file]
-    python T1/run_experiment.py --dry-run [config_file]
-    python T1/run_experiment.py --quick-check [config_file]
-    python T1/run_experiment.py --log-level DEBUG [config_file]
+Utilisation
+-----------
+    python T1/run_experiment.py [fichier_config]
+    python T1/run_experiment.py --dry-run [fichier_config]
+    python T1/run_experiment.py --quick-check [fichier_config]
+    python T1/run_experiment.py --log-level DEBUG [fichier_config]
 
-If *config_file* is omitted, ``T1/config.arg`` is used when present.
+Si *fichier_config* est omis, ``T1/config.arg`` est utilisé s'il est présent.
 """
 
 import argparse
@@ -22,7 +23,7 @@ import sys
 import time
 import traceback
 
-# ── Path setup (must happen before pipeline imports) ──────────────────────────
+# ── Configuration du chemin (doit précéder les imports du pipeline) ───────────
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_THIS_DIR)
 for _p in (_ROOT, _THIS_DIR):
@@ -38,10 +39,10 @@ from utils.env_info import collect as collect_env  # noqa: E402
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="T1 reproducible experiment pipeline for biclustering.",
+        description="Pipeline d'expérimentation reproductible T1 pour le biclustering.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
+Exemples :
   python T1/run_experiment.py --quick-check
   python T1/run_experiment.py --dry-run
   python T1/run_experiment.py T1/config.arg
@@ -50,19 +51,19 @@ Examples:
     )
     p.add_argument(
         "config", nargs="?", default=None,
-        help="Path to config.arg (default: T1/config.arg)",
+        help="Chemin vers config.arg (défaut : T1/config.arg)",
     )
     p.add_argument(
         "--dry-run", action="store_true",
-        help="Print planned runs without executing.",
+        help="Affiche les exécutions planifiées sans les lancer.",
     )
     p.add_argument(
         "--quick-check", action="store_true",
-        help="Run minimal 5x5 validation pipeline.",
+        help="Lance le pipeline de validation minimal sur une matrice 5x5.",
     )
     p.add_argument(
         "--log-level", default="INFO",
-        help="Logging level: DEBUG, INFO, WARNING, ERROR (default: INFO)",
+        help="Niveau de journalisation : DEBUG, INFO, WARNING, ERROR (défaut : INFO)",
     )
     return p
 
@@ -76,28 +77,28 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # ── Locate and parse config ────────────────────────────────────────────
+    # ── Localisation et lecture de la configuration ────────────────────────
     config_path = args.config
     if config_path is None:
         default_cfg = os.path.join(_THIS_DIR, "config.arg")
         if os.path.exists(default_cfg):
             config_path = default_cfg
         else:
-            logging.warning("No config.arg found; all built-in defaults will be used.")
+            logging.warning("Aucun config.arg trouvé ; toutes les valeurs par défaut intégrées seront utilisées.")
 
     raw = cfg_module.parse_file(config_path) if config_path else {}
     cfg = cfg_module.build(raw)
 
-    # CLI flags override config file values
+    # Les indicateurs CLI remplacent les valeurs du fichier de configuration
     if args.dry_run:
         cfg["dry_run"] = True
     if args.quick_check:
         cfg["quick_check"] = True
 
     if cfg["_assumptions"]:
-        logging.info("Active assumptions: %s", cfg["_assumptions"])
+        logging.info("Hypothèses actives : %s", cfg["_assumptions"])
 
-    # ── Output paths ───────────────────────────────────────────────────────
+    # ── Chemins de sortie ─────────────────────────────────────────────────
     output_dir: str = cfg["output_dir"]
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(_ROOT, output_dir)
@@ -111,19 +112,19 @@ def main() -> None:
     env_info = collect_env(_ROOT)
     logging.info("git=%s  python=%s", env_info["git_hash"], env_info["python_version"])
 
-    # ── quick_check mode ───────────────────────────────────────────────────
+    # ── Mode quick_check ──────────────────────────────────────────────────
     if cfg["quick_check"]:
         try:
             run_quick_check(cfg, csv_path, log_dir, env_info)
         except Exception as exc:
             diag = os.path.join(output_dir, "quick_check_diagnostic.txt")
             with open(diag, "w", encoding="utf-8") as fh:
-                fh.write(f"quick_check FAILED\n\n{traceback.format_exc()}")
-            logging.error("quick_check FAILED: %s  Diagnostic: %s", exc, diag)
+                fh.write(f"quick_check ÉCHOUÉ\n\n{traceback.format_exc()}")
+            logging.error("quick_check ÉCHOUÉ : %s  Diagnostic : %s", exc, diag)
             sys.exit(1)
         return
 
-    # ── dry_run mode ───────────────────────────────────────────────────────
+    # ── Mode dry_run ──────────────────────────────────────────────────────
     if cfg["dry_run"]:
         all_solvers = discover_solvers(_ROOT)
         all_heuristics = discover_heuristics(_ROOT)
@@ -131,10 +132,10 @@ def main() -> None:
         print_plan(runs)
         return
 
-    # ── Full pipeline ──────────────────────────────────────────────────────
+    # ── Pipeline complet ──────────────────────────────────────────────────
     execute_pipeline(cfg, csv_path, log_dir, env_info)
-    logging.info("Done. Results CSV: %s", csv_path)
-    print(f"Done. Results: {csv_path}")
+    logging.info("Terminé. CSV de résultats : %s", csv_path)
+    print(f"Terminé. Résultats : {csv_path}")
 
 
 if __name__ == "__main__":

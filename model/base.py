@@ -2,10 +2,10 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Tuple
 
 
-# Type aliases for the data fed to every model
-RowsData = List[Tuple[int, int]]   # [(row_index, degree), ...]
-ColsData = List[Tuple[int, int]]   # [(col_index, degree), ...]
-Edges = List[Tuple[int, int]]      # [(row_index, col_index), ...]
+# Alias de types pour les données transmises à chaque modèle
+RowsData = List[Tuple[int, int]]   # [(indice_ligne, degré), ...]
+ColsData = List[Tuple[int, int]]   # [(indice_colonne, degré), ...]
+Edges = List[Tuple[int, int]]      # [(indice_ligne, indice_colonne), ...]
 
 
 class BiclusterModelBase(ABC):
@@ -14,7 +14,7 @@ class BiclusterModelBase(ABC):
 
     Chaque implémentation doit accepter la même signature de constructeur
     et exposer les méthodes/propriétés listées ici, ce qui permet de
-    typer ``model_class: Type[BiclusterModelBase]`` dans la heuristique
+    typer ``model_class: Type[BiclusterModelBase]`` dans l'heuristique
     ou tout autre code appelant.
     """
 
@@ -28,7 +28,7 @@ class BiclusterModelBase(ABC):
     ) -> None: ...
 
     # ------------------------------------------------------------------
-    # Solver
+    # Solveur
     # ------------------------------------------------------------------
 
     @abstractmethod

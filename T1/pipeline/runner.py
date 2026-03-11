@@ -1,20 +1,20 @@
 """
-T1/pipeline/runner.py — Orchestrate the full experiment pipeline.
+T1/pipeline/runner.py — Orchestration du pipeline d'expérimentation complet.
 
-Responsibilities
-----------------
-- Discover solvers and heuristics.
-- For each (instance/matrix, gamma) group:
-    1. Run exact solvers → collect best_known.
-    2. Run heuristics → compute gap against best_known.
-- Write one CSV row + one JSON log per run (via pipeline.io).
-- Support parallel execution via a ThreadPoolExecutor.
-- Provide run_quick_check() for pipeline validation.
+Responsabilités
+---------------
+- Découverte des solveurs et heuristiques.
+- Pour chaque groupe (instance/matrice, gamma) :
+    1. Exécution des solveurs exacts → collecte du best_known.
+    2. Exécution des heuristiques → calcul de l'écart par rapport au best_known.
+- Écriture d'une ligne CSV + d'un log JSON par exécution (via pipeline.io).
+- Support de l'exécution parallèle via un ThreadPoolExecutor.
+- Fourniture de run_quick_check() pour la validation du pipeline.
 
-Public API
-----------
+API publique
+------------
 execute_pipeline(cfg, csv_path, log_dir, env_info) -> None
-run_quick_check(cfg, csv_path, log_dir, env_info)  -> None  (raises on failure)
+run_quick_check(cfg, csv_path, log_dir, env_info)  -> None  (lève en cas d'échec)
 """
 
 import logging
@@ -27,7 +27,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-# ── Root path bootstrap ────────────────────────────────────────────────────────
+# ── Bootstrap du chemin racine ────────────────────────────────────────────────
 _T1_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _ROOT = os.path.dirname(_T1_DIR)
 for _p in (_ROOT, _T1_DIR):
@@ -40,14 +40,14 @@ from pipeline.io import append_csv_row, init_csv  # noqa: E402
 from pipeline.planner import discover_instances  # noqa: E402
 
 
-# ── Seed generation ────────────────────────────────────────────────────────────
+# ── Génération de graine ──────────────────────────────────────────────────────
 
 def _new_seed() -> int:
-    """Return a fresh random seed in [0, 2**31 - 1] suitable for any RNG."""
+    """Retourne une nouvelle graine aléatoire dans [0, 2**31 - 1] adaptée à tout RNG."""
     return random.randint(0, 2**31 - 1)
 
 
-# ── Group execution ────────────────────────────────────────────────────────────
+# ── Exécution d'un groupe ─────────────────────────────────────────────────────
 
 def _execute_group(
     matrix: np.ndarray,
@@ -64,24 +64,25 @@ def _execute_group(
     assumptions: List[str],
 ) -> None:
     """
-    Execute all exact solvers then all heuristics for one (instance, gamma, seed)
-    group.
+    Exécute tous les solveurs exacts puis toutes les heuristiques pour un groupe
+    (instance, gamma, graine).
 
-    Each call is completely independent:
-      - ``error_rate = 1 − gamma`` is computed locally.
-      - ``best_known`` starts at None and is updated only from this group's exact
-        solvers, so every gamma value is solved in full isolation.
-      - ``run_seed`` drives heuristic reproducibility and, for synthetic matrices,
-        also identifies which matrix was used.
+    Chaque appel est complètement indépendant :
+      - ``error_rate = 1 − gamma`` est calculé localement.
+      - ``best_known`` commence à None et n'est mis à jour qu'à partir des
+        solveurs exacts de ce groupe, donc chaque valeur de gamma est résolue
+        en isolation complète.
+      - ``run_seed`` pilote la reproductibilité des heuristiques et, pour les
+        matrices synthétiques, identifie également quelle matrice a été utilisée.
 
-    Exact solvers run before heuristics so that ``best_known`` is available for
-    the gap metric.
+    Les solveurs exacts s'exécutent avant les heuristiques afin que ``best_known``
+    soit disponible pour la métrique d'écart.
     """
-    # Each gamma is independent: own error_rate, own best_known
+    # Chaque gamma est indépendant : error_rate propre, best_known propre
     error_rate = 1.0 - gamma
     best_known: Optional[float] = None
 
-    # ── Exact solvers ──────────────────────────────────────────────────────
+    # ── Solveurs exacts ────────────────────────────────────────────────────
     for solver_name, solver_cls in solver_classes.items():
         row = run_exact_solver(
             matrix=matrix,
@@ -104,10 +105,9 @@ def _execute_group(
             if best_known is None or obj > best_known:
                 best_known = float(obj)
 
-    # ── Heuristics ─────────────────────────────────────────────────────────
-    # Determine which solver(s) to inject as model_class into heuristics.
-    # 'ALL' → use every configured solver (one row per heuristic×solver pair).
-    # Specific name → use only that solver; falls back to ALL if not found.
+    # ── Heuristiques ──────────────────────────────────────────────────────
+    # Détermine quels solveurs injecter comme model_class dans les heuristiques.
+    # 'ALL' → tous les solveurs configurés ; un nom spécifique → ce solveur seul.
     _hs = cfg.get("heuristic_solver", "ALL")
     if _hs.upper() == "ALL":
         heuristic_solver_classes = solver_classes
@@ -115,14 +115,14 @@ def _execute_group(
         heuristic_solver_classes = {n: c for n, c in solver_classes.items() if n == _hs}
         if not heuristic_solver_classes:
             logging.warning(
-                "heuristic_solver '%s' not found in resolved solvers — "
-                "falling back to ALL.",
+                "heuristic_solver '%s' introuvable dans les solveurs résolus — "
+                "repli sur ALL.",
                 _hs,
             )
             heuristic_solver_classes = solver_classes
 
-    # The run_seed is used for every heuristic in this group so results are
-    # tied to a single recorded seed.
+    # La run_seed est utilisée pour chaque heuristique de ce groupe afin que
+    # les résultats soient liés à une seule graine enregistrée.
     for heuristic_name, heuristic_fn in heuristic_fns.items():
         for solver_name, solver_cls in heuristic_solver_classes.items():
             row = run_heuristic(
@@ -145,20 +145,20 @@ def _execute_group(
             append_csv_row(csv_path, row)
 
 
-# ── Parallelism helper ─────────────────────────────────────────────────────────
+# ── Aide au parallélisme ──────────────────────────────────────────────────────
 
 def _parallel_execute(items: List[Any], fn: Callable, n_jobs: int) -> None:
     """
-    Apply *fn* to every item in *items*, sequentially or via a thread pool.
+    Applique *fn* à chaque élément de *items*, séquentiellement ou via un pool de threads.
 
-    Exceptions raised inside workers are logged but do not abort the
-    remaining work.
+    Les exceptions levées dans les workers sont journalisées mais n'interrompent
+    pas le reste du travail.
 
-    Parameters
+    Paramètres
     ----------
-    items  : list of arguments to pass to fn
-    fn     : callable accepting a single argument
-    n_jobs : 1 → sequential;  >1 → ThreadPoolExecutor with that many threads
+    items  : liste d'arguments à passer à fn
+    fn     : callable acceptant un seul argument
+    n_jobs : 1 → séquentiel ;  >1 → ThreadPoolExecutor avec ce nombre de threads
     """
     if n_jobs <= 1:
         for item in items:
@@ -172,13 +172,13 @@ def _parallel_execute(items: List[Any], fn: Callable, n_jobs: int) -> None:
                 future.result()
             except Exception:
                 logging.error(
-                    "Worker error for %s:\n%s",
+                    "Erreur worker pour %s :\n%s",
                     futures[future],
                     traceback.format_exc(),
                 )
 
 
-# ── Full pipeline ──────────────────────────────────────────────────────────────
+# ── Pipeline complet ──────────────────────────────────────────────────────────
 
 def execute_pipeline(
     cfg: Dict[str, Any],
@@ -187,41 +187,43 @@ def execute_pipeline(
     env_info: Dict[str, Any],
 ) -> None:
     """
-    Discover solvers/heuristics, generate/load matrices, and run all experiments.
+    Découvre les solveurs/heuristiques, génère/charge les matrices et lance
+    toutes les expériences.
 
-    One CSV row and one JSON log are written per run.  The function never
-    raises — errors in individual runs are caught inside the executor.
+    Une ligne CSV et un log JSON sont écrits par exécution. La fonction ne
+    lève jamais d'exception — les erreurs individuelles sont capturées dans
+    l'exécuteur.
 
-    Parameters
+    Paramètres
     ----------
-    cfg      : resolved config dict from ``pipeline.config.build``
-    csv_path : path to the results CSV (created/overwritten here)
-    log_dir  : directory for JSON run logs
-    env_info : environment metadata from ``utils.env_info.collect``
+    cfg      : dict de configuration résolu par ``pipeline.config.build``
+    csv_path : chemin vers le CSV de résultats (créé/écrasé ici)
+    log_dir  : répertoire pour les logs JSON d'exécution
+    env_info : métadonnées d'environnement de ``utils.env_info.collect``
     """
     all_solvers = discover_solvers(_ROOT)
     all_heuristics = discover_heuristics(_ROOT)
 
-    logging.info("Solvers available:    %s", [k for k in all_solvers if ":" not in k])
-    logging.info("Heuristics available: %s", [k for k in all_heuristics if ":" not in k])
+    logging.info("Solveurs disponibles :    %s", [k for k in all_solvers if ":" not in k])
+    logging.info("Heuristiques disponibles : %s", [k for k in all_heuristics if ":" not in k])
 
     solver_classes, heuristic_fns, assumptions = resolve_all(
         cfg, all_solvers, all_heuristics
     )
 
     if not solver_classes:
-        logging.warning("No solver classes resolved — exact runs will be skipped.")
+        logging.warning("Aucune classe de solveur résolue — les exécutions exactes seront ignorées.")
 
     init_csv(csv_path)
 
     if cfg["synthetic"]:
         from utils.create_matrix_V2 import create_matrix  # noqa: E402
 
-        # Generate one seed per repetition dynamically.
-        # Each seed is recorded in the CSV/log for full reproducibility.
+        # Génère une graine par répétition dynamiquement.
+        # Chaque graine est enregistrée dans le CSV/log pour la reproductibilité complète.
         rep_seeds = [_new_seed() for _ in range(cfg["repetitions"])]
 
-        # Groups: each repetition × each gamma is independent
+        # Groupes : chaque répétition × chaque gamma est indépendant
         groups: List[Tuple] = [
             (seed, gamma)
             for seed in rep_seeds
@@ -235,7 +237,7 @@ def execute_pipeline(
             )
             iid = f"synthetic_L{cfg['L']}_C{cfg['C']}_d{cfg['density']}_s{seed}"
             logging.info(
-                "Synthetic seed=%d gamma=%.3f: %dx%d dens=%.4f",
+                "Synthétique graine=%d gamma=%.3f : %dx%d dens=%.4f",
                 seed, gamma, *matrix.shape, float(matrix.mean()),
             )
             _execute_group(
@@ -261,7 +263,7 @@ def execute_pipeline(
         instances = discover_instances(cfg, _ROOT)
         if not instances:
             logging.warning(
-                "No instances found. Check 'instances_dir' / 'instances' in config."
+                "Aucune instance trouvée. Vérifiez 'instances_dir' / 'instances' dans la configuration."
             )
             return
 
@@ -271,13 +273,13 @@ def execute_pipeline(
             try:
                 matrix = load_csv_matrix(inst_path)
             except Exception as exc:
-                logging.error("Failed to load %s: %s", inst_path, exc)
+                logging.error("Échec du chargement de %s : %s", inst_path, exc)
                 return
             if matrix.size == 0:
-                logging.warning("Empty matrix for %s — skipped.", inst_path)
+                logging.warning("Matrice vide pour %s — ignorée.", inst_path)
                 return
             logging.info(
-                "Instance %s gamma=%.3f seed=%d: %dx%d dens=%.4f",
+                "Instance %s gamma=%.3f graine=%d : %dx%d dens=%.4f",
                 iid, gamma, run_seed, *matrix.shape, float(matrix.mean()),
             )
             _execute_group(
@@ -295,7 +297,7 @@ def execute_pipeline(
                 assumptions=assumptions,
             )
 
-        # Generate one seed per repetition; pair with every (instance, gamma)
+        # Génère une graine par répétition ; associe chacune à chaque (instance, gamma)
         rep_seeds = [_new_seed() for _ in range(cfg["repetitions"])]
         groups = [
             (p, g, s)
@@ -306,7 +308,7 @@ def execute_pipeline(
         _parallel_execute(groups, _run_real, cfg["parallel_jobs"])
 
 
-# ── Quick check ────────────────────────────────────────────────────────────────
+# ── Vérification rapide ───────────────────────────────────────────────────────
 
 def run_quick_check(
     cfg: Dict[str, Any],
@@ -315,22 +317,22 @@ def run_quick_check(
     env_info: Dict[str, Any],
 ) -> None:
     """
-    Minimal pipeline validation: 5×5 synthetic matrix, density=0.35,
-    seed=42, gamma=0.9.
+    Validation minimale du pipeline : matrice synthétique 5×5, density=0.35,
+    graine=42, gamma=0.9.
 
-    Validates that:
-      1. The runner executes without an unhandled exception.
-      2. A CSV with at least one data row is produced.
-      3. At least one JSON log file is produced.
+    Vérifie que :
+      1. Le runner s'exécute sans exception non gérée.
+      2. Un CSV avec au moins une ligne de données est produit.
+      3. Au moins un fichier log JSON est produit.
 
-    Raises
-    ------
+    Lève
+    ----
     RuntimeError
-        If no solver is available, or if the expected outputs are missing.
+        Si aucun solveur n'est disponible, ou si les sorties attendues sont absentes.
     """
     from utils.create_matrix_V2 import create_matrix  # noqa: E402
 
-    logging.info("quick_check: 5×5 matrix, density=0.35, seed=42, gamma=0.9")
+    logging.info("quick_check : matrice 5×5, density=0.35, graine=42, gamma=0.9")
 
     all_solvers = discover_solvers(_ROOT)
     all_heuristics = discover_heuristics(_ROOT)
@@ -354,7 +356,7 @@ def run_quick_check(
     )
 
     if not solver_classes:
-        raise RuntimeError("quick_check FAILED: no solver class available.")
+        raise RuntimeError("quick_check ÉCHOUÉ : aucune classe de solveur disponible.")
 
     init_csv(csv_path)
 
@@ -374,16 +376,16 @@ def run_quick_check(
         assumptions=assumptions,
     )
 
-    # ── Validate outputs ───────────────────────────────────────────────────
+    # ── Validation des sorties ─────────────────────────────────────────────
     if not os.path.exists(csv_path):
-        raise RuntimeError("quick_check FAILED: CSV not produced.")
+        raise RuntimeError("quick_check ÉCHOUÉ : CSV non produit.")
 
     with open(csv_path) as f:
         lines = f.readlines()
     if len(lines) < 2:
         raise RuntimeError(
-            f"quick_check FAILED: CSV has {len(lines)} line(s); "
-            "expected header + ≥1 data row."
+            f"quick_check ÉCHOUÉ : le CSV contient {len(lines)} ligne(s) ; "
+            "en-tête + ≥1 ligne de données attendus."
         )
 
     log_files = (
@@ -392,14 +394,14 @@ def run_quick_check(
         else []
     )
     if not log_files:
-        raise RuntimeError("quick_check FAILED: No JSON logs produced.")
+        raise RuntimeError("quick_check ÉCHOUÉ : aucun log JSON produit.")
 
     logging.info(
-        "quick_check PASSED: %d CSV row(s), %d JSON log(s).",
+        "quick_check RÉUSSI : %d ligne(s) CSV, %d log(s) JSON.",
         len(lines) - 1,
         len(log_files),
     )
     print(
-        f"quick_check PASSED: {len(lines) - 1} CSV row(s), "
-        f"{len(log_files)} JSON log(s).  CSV: {csv_path}"
+        f"quick_check RÉUSSI : {len(lines) - 1} ligne(s) CSV, "
+        f"{len(log_files)} log(s) JSON.  CSV : {csv_path}"
     )

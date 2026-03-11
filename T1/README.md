@@ -1,239 +1,241 @@
-# T1 — Experiment Pipeline
+# T1 — Pipeline d'expérimentation
 
-> **Scope: experimentation only — no analysis, no visualisation.**
+> **Périmètre : expérimentation uniquement — pas d'analyse, pas de visualisation.**
 >
-> This folder contains a reproducible pipeline that runs exact solvers and
-> heuristics, collects raw metrics, and writes a CSV + per-run JSON logs.
-> Analysis and plots are out of scope here (see `T1_test_plan.md` for the full
-> analysis plan).
+> Ce dossier contient un pipeline reproductible qui exécute des solveurs exacts et
+> des heuristiques, collecte des métriques brutes, et produit un CSV + des logs JSON
+> par exécution. L'analyse et les graphiques sont hors périmètre ici (voir
+> `T1_test_plan.md` pour le plan d'analyse complet).
 
 ---
 
-## Directory layout
+## Structure du répertoire
 
 ```
 T1/
-├── run_experiment.py      # Thin CLI entry point (wires pipeline together)
-├── config.arg             # Working config (quick-test defaults)
-├── config.arg.example     # Fully documented example config
-├── README.md              # This file
-├── pipeline/              # Functional modules (one responsibility each)
+├── run_experiment.py      # Point d'entrée CLI (orchestre le pipeline)
+├── config.arg             # Configuration de travail (valeurs par défaut pour test rapide)
+├── config.arg.example     # Exemple de configuration entièrement documenté
+├── README.md              # Ce fichier
+├── pipeline/              # Modules fonctionnels (une responsabilité chacun)
 │   ├── __init__.py
-│   ├── config.py          # parse_file / build — config parsing & defaults
+│   ├── config.py          # parse_file / build — lecture et valeurs par défaut de la config
 │   ├── discovery.py       # discover_solvers / discover_heuristics / resolve_all
 │   ├── metrics.py         # matrix_to_model_inputs / compute_metrics / compute_gap
 │   ├── io.py              # CSV_HEADER / init_csv / append_csv_row / write_json_log
-│   ├── executor.py        # run_exact_solver / run_heuristic (never raises)
+│   ├── executor.py        # run_exact_solver / run_heuristic (ne lève jamais)
 │   ├── planner.py         # plan_runs / print_plan / discover_instances
 │   └── runner.py          # execute_pipeline / run_quick_check
-└── results/               # Created at runtime
-    ├── results_<ts>.csv   # One CSV per invocation (all runs)
+└── results/               # Créé à l'exécution
+    ├── results_<ts>.csv   # Un CSV par invocation (toutes les exécutions)
     └── logs/
-        └── *.json         # One JSON log per run
+        └── *.json         # Un log JSON par exécution
 
-utils/ (repository-level, reusable)
-├── env_info.py            # collect() — git hash, python version, pip freeze
-└── matrix_io.py           # load_csv_matrix() — CSV loader with auto-detection
+utils/ (au niveau du dépôt, réutilisable)
+├── env_info.py            # collect() — hash git, version python, pip freeze
+└── matrix_io.py           # load_csv_matrix() — chargeur CSV avec détection automatique
 ```
 
 ---
 
-## Quick start
+## Démarrage rapide
 
 ```bash
-# From the repository root
+# Depuis la racine du dépôt
 
-# 1. Validate the pipeline with a minimal 5×5 matrix
+# 1. Valider le pipeline avec une matrice minimale 5×5
 python T1/run_experiment.py --quick-check
 
-# 2. Preview planned runs without executing (dry run)
+# 2. Prévisualiser les exécutions planifiées sans les lancer (dry run)
 python T1/run_experiment.py --dry-run
 
-# 3. Full run (reads T1/config.arg)
+# 3. Exécution complète (lit T1/config.arg)
 python T1/run_experiment.py
 
-# 4. Specify a different config file
-python T1/run_experiment.py path/to/my_config.arg
+# 4. Spécifier un fichier de configuration différent
+python T1/run_experiment.py chemin/vers/ma_config.arg
 
-# 5. Override log level
+# 5. Modifier le niveau de journalisation
 python T1/run_experiment.py --log-level DEBUG
 ```
 
 ---
 
-## Config format (`key=value`)
+## Format de configuration (`clé=valeur`)
 
-The config file uses plain `key=value` syntax.  Lines starting with `#` are
-comments.  Lists are **comma-separated** values on a single line.
+Le fichier de configuration utilise la syntaxe simple `clé=valeur`. Les lignes
+commençant par `#` sont des commentaires. Les listes sont des valeurs
+**séparées par des virgules** sur une seule ligne.
 
-### Complete key reference
+### Référence complète des clés
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `instances_dir` | `Mat` | Directory of real CSV instances |
-| `instances` | *(unset)* | Explicit list of CSV filenames inside `instances_dir`; if absent all `*.csv` files are used |
-| `synthetic` | `false` | `true` → generate matrices; `false` → load from `instances_dir` |
-| `synthetic_specs` | `L:50,C:50,density:0.35` | Dimensions and base density for synthetic matrices |
-| `repetitions` | `5` | Number of independent runs per `(instance, γ)` pair; each run generates a fresh random seed (recorded in CSV/logs) |
-| `gammas` | `0.9,0.95,0.99,1.0` | Target minimum sub-matrix densities; `error_rate = 1 − γ` |
-| `solvers` | *(unset)* | Exact solver class names (see below) |
-| `heuristics` | *(unset)* | Heuristic function names (see below) |
-| `heuristic_solver` | `ALL` | Solver injected as `model_class` into heuristics: `ALL` → each configured solver is used per heuristic run; a class name → only that solver is used (must appear in `solvers`) |
-| `timeout_exact` | `600` | Time limit (s) for each exact solver run |
-| `timeout_heuristic` | `150` | Time limit (s) for each heuristic run |
-| `output_dir` | `T1/results` | Output directory (relative to repo root, or absolute) |
-| `parallel_jobs` | `1` | `1` = sequential; `N` = N-thread pool (exact→heuristic order preserved within a group) |
-| `dry_run` | `false` | Print planned runs, no execution |
-| `quick_check` | `false` | Minimal 5×5 validation run |
+| Clé | Défaut | Description |
+|-----|--------|-------------|
+| `instances_dir` | `Mat` | Répertoire des instances CSV réelles |
+| `instances` | *(non défini)* | Liste explicite de noms de fichiers CSV dans `instances_dir` ; si absent, tous les fichiers `*.csv` sont utilisés |
+| `synthetic` | `false` | `true` → générer des matrices ; `false` → charger depuis `instances_dir` |
+| `synthetic_specs` | `L:50,C:50,density:0.35` | Dimensions et densité de base pour les matrices synthétiques |
+| `repetitions` | `5` | Nombre d'exécutions indépendantes par paire `(instance, γ)` ; chaque exécution génère une graine aléatoire (enregistrée dans CSV/logs) |
+| `gammas` | `0.9,0.95,0.99,1.0` | Densités minimales cibles de la sous-matrice ; `error_rate = 1 − γ` |
+| `solvers` | *(non défini)* | Noms des classes de solveurs exacts (voir ci-dessous) |
+| `heuristics` | *(non défini)* | Noms des fonctions heuristiques (voir ci-dessous) |
+| `heuristic_solver` | `ALL` | Solveur injecté comme `model_class` dans les heuristiques : `ALL` → chaque solveur configuré est utilisé par exécution heuristique ; un nom de classe → seul ce solveur est utilisé (doit figurer dans `solvers`) |
+| `timeout_exact` | `600` | Limite de temps (s) pour chaque exécution de solveur exact |
+| `timeout_heuristic` | `150` | Limite de temps (s) pour chaque exécution heuristique |
+| `output_dir` | `T1/results` | Répertoire de sortie (relatif à la racine du dépôt, ou absolu) |
+| `parallel_jobs` | `1` | `1` = séquentiel ; `N` = pool de N threads (ordre exact→heuristique préservé dans un groupe) |
+| `dry_run` | `false` | Affiche les exécutions planifiées, sans exécution |
+| `quick_check` | `false` | Exécution de validation minimale sur une matrice 5×5 |
 
-### How to write `solvers`
+### Comment écrire `solvers`
 
-The pipeline scans `model/final/` for all subclasses of `BiclusterModelBase`.
+Le pipeline parcourt `model/final/` pour toutes les sous-classes de `BiclusterModelBase`.
 
-| Format | Example | Behaviour |
-|--------|---------|-----------|
-| `ClassName` | `MaxOneModel` | Searches all modules under `model/final` |
-| `module:ClassName` | `max_one_final:MaxOneModel` | Targets a specific file |
-| `model.final.module:ClassName` | `model.final.max_one_final:MaxOneModel` | Fully qualified |
+| Format | Exemple | Comportement |
+|--------|---------|--------------|
+| `NomClasse` | `MaxOneModel` | Recherche dans tous les modules sous `model/final` |
+| `module:NomClasse` | `max_one_final:MaxOneModel` | Cible un fichier spécifique |
+| `model.final.module:NomClasse` | `model.final.max_one_final:MaxOneModel` | Chemin complet |
 
-Multiple solvers are comma-separated:
+Plusieurs solveurs séparés par des virgules :
 
 ```
 solvers=MaxOneModel,MaxSurfaceModel
 ```
 
-### How to write `heuristics`
+### Comment écrire `heuristics`
 
-The pipeline scans `model/heuristics/` for all callable functions.
+Le pipeline parcourt `model/heuristics/` pour toutes les fonctions appelables.
 
-| Format | Example | Behaviour |
-|--------|---------|-----------|
-| `func_name` | `heuristicA` | Searches all modules under `model/heuristics` |
-| `module:func_name` | `heuristicA:heuristicA` | Targets a specific file |
-| `model.heuristics.module:func` | `model.heuristics.heuristicA:heuristicA` | Fully qualified |
+| Format | Exemple | Comportement |
+|--------|---------|--------------|
+| `nom_fonction` | `heuristicA` | Recherche dans tous les modules sous `model/heuristics` |
+| `module:nom_fonction` | `heuristicA:heuristicA` | Cible un fichier spécifique |
+| `model.heuristics.module:fonction` | `model.heuristics.heuristicA:heuristicA` | Chemin complet |
 
-### How `heuristic_solver` works
+### Fonctionnement de `heuristic_solver`
 
-Every heuristic function receives a `model_class` argument of type
-`Type[BiclusterModelBase]`.  This is the solver class it uses internally to
-run the MIP sub-problems in each phase.  The result row's `solver` column
-records which class was injected.
+Chaque fonction heuristique reçoit un argument `model_class` de type
+`Type[BiclusterModelBase]`. C'est la classe de solveur qu'elle utilise en
+interne pour les sous-problèmes MIP de chaque phase. La colonne `solver` de
+la ligne de résultat enregistre quelle classe a été injectée.
 
-| Setting | Effect |
-|---------|--------|
-| `heuristic_solver=ALL` | Each solver listed in `solvers` is injected in turn — one CSV row per `(heuristic, solver)` pair |
-| `heuristic_solver=MaxOneModel` | Only `MaxOneModel` is injected, regardless of how many solvers appear in `solvers` |
+| Valeur | Effet |
+|--------|-------|
+| `heuristic_solver=ALL` | Chaque solveur listé dans `solvers` est injecté à tour de rôle — une ligne CSV par paire `(heuristique, solveur)` |
+| `heuristic_solver=MaxOneModel` | Seul `MaxOneModel` est injecté, quel que soit le nombre de solveurs dans `solvers` |
 
-Example:
+Exemple :
 ```
 solvers=MaxOneModel,MaxSurfaceModel
 heuristics=heuristicA
-heuristic_solver=MaxOneModel   # heuristicA runs with MaxOneModel only
+heuristic_solver=MaxOneModel   # heuristicA s'exécute uniquement avec MaxOneModel
 ```
 
 ---
 
-## CSV output format
+## Format de sortie CSV
 
-One CSV file per invocation is written to `T1/results/results_<timestamp>.csv`.
+Un fichier CSV par invocation est écrit dans `T1/results/results_<horodatage>.csv`.
 
-**Header:**
+**En-tête :**
 
 ```
 instance_id,m,n,base_dens,gamma,solver,seed,heuristic,time,status,objective,area,density,gap
 ```
 
-| Column | Description |
-|--------|-------------|
-| `instance_id` | Filename stem (real) or `synthetic_L{L}_C{C}_d{density}_s{seed}` |
-| `m`, `n` | Matrix dimensions |
-| `base_dens` | Global density of the input matrix |
-| `gamma` | Target minimum density (config value) |
-| `solver` | Name of the solver class used |
-| `seed` | Dynamically generated seed used for this run (synthetic matrix generation + heuristic RNG) |
-| `heuristic` | Heuristic function name, or `NA` for exact runs |
-| `time` | Wall-clock time in seconds |
-| `status` | `optimal` \| `time_limit` \| `error` \| Gurobi status string |
-| `objective` | Number of 1s in the selected sub-matrix (computed from row/col indices) |
-| `area` | `#rows_selected × #cols_selected` |
-| `density` | `objective / area` (0 if area = 0) |
-| `gap` | `100 × (best_known − objective) / best_known` (%) or `NA` |
+| Colonne | Description |
+|---------|-------------|
+| `instance_id` | Nom du fichier sans extension (réel) ou `synthetic_L{L}_C{C}_d{density}_s{seed}` |
+| `m`, `n` | Dimensions de la matrice |
+| `base_dens` | Densité globale de la matrice d'entrée |
+| `gamma` | Densité cible minimale (valeur de configuration) |
+| `solver` | Nom de la classe de solveur utilisée |
+| `seed` | Graine générée dynamiquement pour cette exécution (génération de matrice synthétique + RNG heuristique) |
+| `heuristic` | Nom de la fonction heuristique, ou `NA` pour les exécutions exactes |
+| `time` | Temps réel en secondes |
+| `status` | `optimal` \| `time_limit` \| `error` \| chaîne de statut Gurobi |
+| `objective` | Nombre de 1 dans la sous-matrice sélectionnée (calculé à partir des indices ligne/colonne) |
+| `area` | `#lignes_sélectionnées × #colonnes_sélectionnées` |
+| `density` | `objective / area` (0 si area = 0) |
+| `gap` | `100 × (best_known − objective) / best_known` (%) ou `NA` |
 
-`best_known` is the maximum `objective` observed across all exact solvers for
-the same `(instance, gamma)` group.
+`best_known` est le maximum d'`objective` observé sur tous les solveurs exacts pour
+le même groupe `(instance, gamma)`.
 
 ---
 
-## JSON log format
+## Format des logs JSON
 
-One file per run in `T1/results/logs/<run_id>.json`.  Content includes:
+Un fichier par exécution dans `T1/results/logs/<run_id>.json`. Le contenu comprend :
 
 - `run_id`, `instance_id`, `solver`, `heuristic`, `gamma`, `error_rate`, `seed`
 - `timeout`, `elapsed`
-- `env`: `git_hash`, `python_version`, `platform`, `pip_freeze`
-- `assumptions`: list of auto-assumption strings applied during this session
-- `import_path`: Python module path of the solver/heuristic called
-- `introspected_params` (heuristic only): list of parameter names detected
-- `raw_status`: integer code returned by the solver
-- `selected_rows`, `selected_cols`: index lists
-- `model_ObjVal` (exact only): ObjVal reported by the model
-- `traceback`: full traceback string on error, else `null`
-- `csv_row`: the exact dict written to the CSV
+- `env` : `git_hash`, `python_version`, `platform`, `pip_freeze`
+- `assumptions` : liste des hypothèses auto-appliquées lors de cette session
+- `import_path` : chemin Python du module du solveur/heuristique appelé
+- `introspected_params` (heuristique uniquement) : liste des noms de paramètres détectés
+- `raw_status` : code entier retourné par le solveur
+- `selected_rows`, `selected_cols` : listes d'indices
+- `model_ObjVal` (exact uniquement) : ObjVal rapporté par le modèle
+- `traceback` : chaîne de traceback complète en cas d'erreur, sinon `null`
+- `csv_row` : le dict exact écrit dans le CSV
 
 ---
 
-## Reproducibility
+## Reproductibilité
 
-- **Synthetic matrices** are generated with `utils/create_matrix_V2.create_matrix(L, C, density, seed)`.
-  Only the `seed` is stored (not the matrix), so it can be regenerated exactly by calling the same function.
-- **Heuristics** receive the configured `seed` and the runner also sets `random.seed(seed)` and
-  `numpy.random.seed(seed)` before each heuristic call.
+- **Matrices synthétiques** : générées avec `utils/create_matrix_V2.create_matrix(L, C, density, seed)`.
+  Seule la `seed` est stockée (pas la matrice), elle peut donc être régénérée exactement
+  en appelant la même fonction.
+- **Heuristiques** : reçoivent la `seed` configurée et le runner fixe également
+  `random.seed(seed)` et `numpy.random.seed(seed)` avant chaque appel heuristique.
 
 ---
 
-## Default assumptions (applied when config is incomplete)
+## Hypothèses par défaut (appliquées quand la configuration est incomplète)
 
-These assumptions are logged at runtime and stored in every JSON log.
+Ces hypothèses sont journalisées à l'exécution et stockées dans chaque log JSON.
 
-| Situation | Default behaviour |
-|-----------|------------------|
-| `instances_dir` absent | Use `Mat` |
-| `solvers` empty and `synthetic=true` | Auto-select the first class found in `model/final` |
-| `heuristic_solver` names a solver not in `solvers` | Fall back to ALL solvers with a WARNING |
-| `repetitions` not set | Use `5` |
-| `gammas` empty | Use `[0.95]` |
+| Situation | Comportement par défaut |
+|-----------|------------------------|
+| `instances_dir` absent | Utiliser `Mat` |
+| `solvers` vide et `synthetic=true` | Auto-sélectionner la première classe trouvée dans `model/final` |
+| `heuristic_solver` nomme un solveur absent de `solvers` | Repli sur ALL les solveurs avec un AVERTISSEMENT |
+| `repetitions` absent | Utiliser `5` |
+| `gammas` vide | Utiliser `[0.95]` |
 | `synthetic_specs` absent | `L=50, C=50, density=0.35` |
-| Real CSV separator unknown | Auto-detect from first line; log detection decision |
-| Real CSV has a header row | Auto-detect non-numeric first row; skip it; log decision |
-| Heuristic signature differs | Introspect with `inspect.signature`; match parameters by name; skip unknown required params with `status=error` |
-| Solver's `setParam` fails | Log warning and continue (solver handles its own timeout internally if possible) |
-| `gurobipy` unavailable / no licence | Run is skipped; `status=error` with full message; pipeline continues |
+| Séparateur CSV réel inconnu | Détection automatique à partir de la première ligne ; journaliser la décision |
+| Première ligne CSV réelle est un en-tête | Détection automatique de la première ligne non numérique ; l'ignorer ; journaliser la décision |
+| Signature de l'heuristique différente | Introspection avec `inspect.signature` ; correspondance des paramètres par nom ; ignorer les paramètres positionnels requis inconnus avec `status=error` |
+| `setParam` du solveur échoue | Journaliser l'avertissement et continuer (le solveur gère son propre timeout en interne si possible) |
+| `gurobipy` indisponible / pas de licence | L'exécution est ignorée ; `status=error` avec message complet ; le pipeline continue |
 
 ---
 
-## Reproducing `quick_check`
+## Reproduire `quick_check`
 
 ```bash
 python T1/run_experiment.py --quick-check
 ```
 
-This runs one exact solver + (if configured) one heuristic on a 5×5 synthetic
-matrix (`density=0.35, seed=42, gamma=0.9`) and verifies that:
+Lance un solveur exact + (si configuré) une heuristique sur une matrice synthétique 5×5
+(`density=0.35, seed=42, gamma=0.9`) et vérifie que :
 
-1. The runner exits without an unhandled exception.
-2. A CSV with at least one data row is produced.
-3. At least one JSON log file is produced.
+1. Le runner se termine sans exception non gérée.
+2. Un CSV avec au moins une ligne de données est produit.
+3. Au moins un fichier log JSON est produit.
 
-If `quick_check` fails, a diagnostic file is written to
-`T1/results/quick_check_diagnostic.txt` and the process exits with code 1.
+En cas d'échec du `quick_check`, un fichier de diagnostic est écrit dans
+`T1/results/quick_check_diagnostic.txt` et le processus se termine avec le code 1.
 
 ---
 
-## Dependencies
+## Dépendances
 
-Standard library only (`csv`, `concurrent.futures`, `inspect`, `json`, …) plus
-`numpy` (already used by `model/heuristics`).  No additional packages required
-beyond what is already present in the repository environment.
+Bibliothèque standard uniquement (`csv`, `concurrent.futures`, `inspect`, `json`, …) plus
+`numpy` (déjà utilisé par `model/heuristics`). Aucun paquet supplémentaire requis
+au-delà de ce qui est déjà présent dans l'environnement du dépôt.
 
-A `requirements.txt` is not added because no new external dependencies are
-introduced.
+Un `requirements.txt` n'est pas ajouté car aucune nouvelle dépendance externe n'est
+introduite.

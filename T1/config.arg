@@ -1,39 +1,39 @@
-# T1/config.arg — Quick-test configuration
-# Run with: python T1/run_experiment.py --quick-check
-# Or full run: python T1/run_experiment.py
+# T1/config.arg — Configuration de test rapide
+# Lancer avec : python T1/run_experiment.py --quick-check
+# Ou exécution complète : python T1/run_experiment.py
 
-# Use synthetic matrices for quick testing
+# Utiliser des matrices synthétiques pour les tests rapides
 synthetic=true
 synthetic_specs=L:10,C:10,density:0.5
 
-# Number of independent repetitions per (instance, gamma) pair.
-# Each repetition gets a fresh randomly-generated seed (recorded in CSV/logs).
+# Nombre de répétitions indépendantes par paire (instance, gamma).
+# Chaque répétition reçoit une graine générée aléatoirement (enregistrée dans CSV/logs).
 repetitions=5
 
-# Gamma values to test (error_rate = 1 - gamma)
+# Valeurs de gamma à tester (error_rate = 1 - gamma)
 gammas=0.9,0.95
 
-# Solvers from model/final/ (ClassName or module:ClassName)
+# Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
 solvers=MaxOneModel
 
-# Heuristics from model/heuristics/ (func_name or module:func_name)
+# Heuristiques depuis model/heuristics/ (nom_fonction ou module:nom_fonction)
 heuristics=heuristicA
 
-# Solver to use as the model inside heuristics.
-# ALL  → each configured solver is used for each heuristic run (one row per pair)
-# Name → only that solver is injected (must be listed in 'solvers')
+# Solveur à utiliser comme model_class dans les heuristiques.
+# ALL  → chaque solveur configuré est utilisé pour chaque exécution heuristique
+# Nom  → seul ce solveur est injecté (doit figurer dans 'solvers')
 heuristic_solver=ALL
 
-# Timeouts
+# Délais d'expiration
 timeout_exact=120
 timeout_heuristic=60
 
-# Output directory (relative to repository root)
+# Répertoire de sortie (relatif à la racine du dépôt)
 output_dir=T1/results
 
-# Parallelism (1 = sequential)
+# Parallélisme (1 = séquentiel)
 parallel_jobs=1
 
-# Flags
+# Indicateurs
 dry_run=false
 quick_check=false

@@ -1,73 +1,73 @@
-# T1/config.arg.example — Example configuration for run_experiment.py
-# Format: key=value (key=value, no spaces around '=')
-# Lists: comma-separated values
-# Lines starting with '#' are comments
+# T1/config.arg.example — Exemple de configuration pour run_experiment.py
+# Format : clé=valeur (sans espaces autour du '=')
+# Listes : valeurs séparées par des virgules
+# Les lignes commençant par '#' sont des commentaires
 
-# ── Data source ────────────────────────────────────────────────────────────────
-# Directory containing real CSV instance files (0/1 matrix, comma-sep, no header)
+# ── Source de données ──────────────────────────────────────────────────────────
+# Répertoire contenant les fichiers CSV d'instances réelles (matrice 0/1, séparateur virgule, sans en-tête)
 instances_dir=Mat
 
-# Optional: explicit list of instance filenames inside instances_dir
-# If omitted, all *.csv files in instances_dir are used
-# instances=file1.csv,file2.csv
+# Optionnel : liste explicite de noms de fichiers dans instances_dir
+# Si absent, tous les fichiers *.csv dans instances_dir sont utilisés
+# instances=fichier1.csv,fichier2.csv
 
-# ── Synthetic matrices ─────────────────────────────────────────────────────────
-# Set to true to generate synthetic matrices instead of using real instances
+# ── Matrices synthétiques ──────────────────────────────────────────────────────
+# Mettre à true pour générer des matrices synthétiques au lieu d'utiliser des instances réelles
 synthetic=true
 
-# Synthetic matrix dimensions and base density
-# Format: L:<rows>,C:<cols>,density:<fraction_of_ones>
+# Dimensions et densité de base des matrices synthétiques
+# Format : L:<lignes>,C:<colonnes>,density:<fraction_de_uns>
 synthetic_specs=L:200,C:200,density:0.1
 
-# ── Repetitions ────────────────────────────────────────────────────────────────
-# Number of independent runs per (instance, gamma) pair.
-# Each repetition generates a fresh random seed at runtime, which is recorded
-# in the CSV and JSON log for full reproducibility.
+# ── Répétitions ────────────────────────────────────────────────────────────────
+# Nombre d'exécutions indépendantes par paire (instance, gamma).
+# Chaque répétition génère une graine aléatoire à l'exécution, enregistrée
+# dans le CSV et le log JSON pour la reproductibilité complète.
 repetitions=5
 
-# ── Gamma values (minimum target density of the selected submatrix) ───────────
-# error_rate = 1 - gamma is passed to solvers
+# ── Valeurs de gamma (densité cible minimale de la sous-matrice sélectionnée) ──
+# error_rate = 1 - gamma est transmis aux solveurs
 gammas=0.9,0.95,0.99,1.0
 
-# ── Solvers (exact — classes in model/final/) ──────────────────────────────────
-# Format options:
-#   ClassName                        → searches all modules under model/final
-#   module_filename:ClassName        → e.g. max_one_final:MaxOneModel
-#   model.final.module:ClassName     → fully qualified
-# Multiple solvers: comma-separated
+# ── Solveurs (exacts — classes dans model/final/) ──────────────────────────────
+# Options de format :
+#   NomClasse                          → recherche dans tous les modules sous model/final
+#   nom_fichier_module:NomClasse       → ex. max_one_final:MaxOneModel
+#   model.final.module:NomClasse       → chemin complet
+# Plusieurs solveurs : séparés par des virgules
 solvers=MaxOneModel,MaxSurfaceModel
 
-# ── Heuristics (functions in model/heuristics/) ────────────────────────────────
-# Format options:
-#   func_name                        → searches all modules under model/heuristics
-#   module_filename:func_name        → e.g. heuristicA:heuristicA
-#   model.heuristics.module:func     → fully qualified
-# Multiple heuristics: comma-separated
+# ── Heuristiques (fonctions dans model/heuristics/) ───────────────────────────
+# Options de format :
+#   nom_fonction                           → recherche dans tous les modules sous model/heuristics
+#   nom_fichier_module:nom_fonction        → ex. heuristicA:heuristicA
+#   model.heuristics.module:fonction       → chemin complet
+# Plusieurs heuristiques : séparées par des virgules
 heuristics=heuristicA
 
-# ── Heuristic solver ────────────────────────────────────────────────────────────
-# Which solver class to inject as model_class inside each heuristic.
-# ALL  → every solver in 'solvers' is used for each heuristic run, producing
-#        one CSV row per (heuristic, solver) pair.
-# Name → a specific class name (must be listed in 'solvers'); only that solver
-#        is used for heuristic runs.  Falls back to ALL with a warning if the
-#        name is not found.
+# ── Solveur pour les heuristiques ──────────────────────────────────────────────
+# Quelle classe de solveur injecter comme model_class dans chaque heuristique.
+# ALL  → chaque solveur dans 'solvers' est utilisé pour chaque exécution heuristique,
+#        produisant une ligne CSV par paire (heuristique, solveur).
+# Nom  → un nom de classe spécifique (doit figurer dans 'solvers') ; seul ce solveur
+#        est utilisé pour les exécutions heuristiques. Repli sur ALL avec un avertissement
+#        si le nom est introuvable.
 heuristic_solver=ALL
 
-# ── Timeouts (seconds) ─────────────────────────────────────────────────────────
+# ── Délais d'expiration (secondes) ─────────────────────────────────────────────
 timeout_exact=600
 timeout_heuristic=150
 
-# ── Output ─────────────────────────────────────────────────────────────────────
+# ── Sortie ──────────────────────────────────────────────────────────────────────
 output_dir=T1/results
 
-# ── Parallelism ────────────────────────────────────────────────────────────────
-# Number of parallel workers (1 = sequential, >1 uses ThreadPoolExecutor)
+# ── Parallélisme ────────────────────────────────────────────────────────────────
+# Nombre de workers parallèles (1 = séquentiel, >1 utilise ThreadPoolExecutor)
 parallel_jobs=1
 
-# ── Flags ──────────────────────────────────────────────────────────────────────
-# dry_run=true  → print planned runs without executing
+# ── Indicateurs ─────────────────────────────────────────────────────────────────
+# dry_run=true  → affiche les exécutions planifiées sans les lancer
 dry_run=false
 
-# quick_check=true → run minimal 5×5 validation pipeline
+# quick_check=true → lance le pipeline de validation minimal sur une matrice 5×5
 quick_check=false
