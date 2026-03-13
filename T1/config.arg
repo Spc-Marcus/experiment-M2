@@ -1,0 +1,39 @@
+# T1/config.arg — Configuration de test rapide
+# Lancer avec : python T1/run_experiment.py --quick-check
+# Ou exécution complète : python T1/run_experiment.py
+
+# Utiliser des matrices synthétiques pour les tests rapides
+synthetic=true
+synthetic_specs=L:10,C:10,density:0.5
+
+# Nombre de répétitions indépendantes par paire (instance, gamma).
+# Chaque répétition reçoit une graine générée aléatoirement (enregistrée dans CSV/logs).
+repetitions=5
+
+# Valeurs de gamma à tester (error_rate = 1 - gamma)
+gammas=0.9,0.95
+
+# Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
+solvers=MaxOneModel
+
+# Heuristiques depuis model/heuristics/ (nom_fonction ou module:nom_fonction)
+heuristics=heuristicA
+
+# Solveur à utiliser comme model_class dans les heuristiques.
+# ALL  → chaque solveur configuré est utilisé pour chaque exécution heuristique
+# Nom  → seul ce solveur est injecté (doit figurer dans 'solvers')
+heuristic_solver=ALL
+
+# Délais d'expiration
+timeout_exact=120
+timeout_heuristic=60
+
+# Répertoire de sortie (relatif à la racine du dépôt)
+output_dir=T1/results
+
+# Parallélisme (1 = séquentiel)
+parallel_jobs=1
+
+# Indicateurs
+dry_run=false
+quick_check=false

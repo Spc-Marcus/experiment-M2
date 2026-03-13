@@ -13,15 +13,15 @@ def heuristicA(
     model_class: Type[BiclusterModelBase],
     error_rate: float = 0.025,
     time_limit: int = 3600,
-    seed:int = 1,
+    seed: int = 1,
 ) -> Tuple[List[int], List[int], int]:
     """
-    input_matrix: matrice binaire d'entrée (numpy array).
-    model_class: classe du modèle à utiliser (ex. MaxOneModel, MaxSurfaceModel).
-    error_rate: taux d'erreur maximum autorisé dans la sous-matrice (float entre 0 et 1).
-    time_limit: temps maximum alloué à chaque phase du modèle (en secondes).
+    input_matrix : matrice binaire d'entrée (tableau numpy).
+    model_class  : classe du modèle à utiliser (ex. MaxOneModel, MaxSurfaceModel).
+    error_rate   : taux d'erreur maximum autorisé dans la sous-matrice (float entre 0 et 1).
+    time_limit   : temps maximum alloué à chaque phase du modèle (en secondes).
 
-    return: (row_indices, col_indices, code de succès gurobipy)
+    retourne : (indices_lignes, indices_colonnes, code de succès gurobipy)
     """
     X_problem = input_matrix.copy()
     cols_sorted = np.argsort(X_problem.sum(axis=0))[::-1]
@@ -56,8 +56,8 @@ def heuristicA(
     logger.debug("seed_cols déterminé : %d.", seed_cols)
 
     try:
-        # PHASE 1: Modèle uniquement sur seed_rows x seed_cols
-        logger.info("Phase 1 : modèle initial sur %d lignes × %d colonnes (seed).", m, seed_cols)
+        # PHASE 1 : Modèle uniquement sur seed_rows x seed_cols
+        logger.info("Phase 1 : modèle initial sur %d lignes × %d colonnes (amorce).", m, seed_cols)
         seed_row_indices = rows_sorted
         seed_col_indices = cols_sorted[:seed_cols]
 
@@ -88,10 +88,10 @@ def heuristicA(
         cl = model.get_selected_cols()
         logger.info("Phase 1 terminée : %d lignes × %d colonnes sélectionnées.", len(rw), len(cl))
 
-        # PHASE 2: Nouveau modèle pour extension colonnes
+        # PHASE 2 : Nouveau modèle pour extension colonnes
         logger.info("Phase 2 : extension des colonnes (relâchement de toutes les colonnes restantes).")
         rem_cols = [c for c in cols_sorted if c not in cl]
-        # Relâcher toutes les colonnes restantes (ne pas filtrer seulement les 'potential')
+        # Relâcher toutes les colonnes restantes
         potential_cols = rem_cols
 
         logger.debug("Phase 2 : %d colonnes candidates à l'extension.", len(potential_cols))
@@ -131,10 +131,10 @@ def heuristicA(
         else:
             logger.info("Phase 2 : aucune colonne restante, extension ignorée.")
 
-        # PHASE 3: Nouveau modèle pour extension lignes
+        # PHASE 3 : Nouveau modèle pour extension lignes
         logger.info("Phase 3 : extension des lignes (relâchement de toutes les lignes restantes).")
         rem_rows = [r for r in rows_sorted if r not in rw]
-        # Relâcher toutes les lignes restantes (ne pas filtrer seulement les 'potential')
+        # Relâcher toutes les lignes restantes
         potential_rows = rem_rows
 
         logger.debug("Phase 3 : %d lignes candidates à l'extension.", len(potential_rows))

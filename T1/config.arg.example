@@ -1,0 +1,73 @@
+# T1/config.arg.example — Exemple de configuration pour run_experiment.py
+# Format : clé=valeur (sans espaces autour du '=')
+# Listes : valeurs séparées par des virgules
+# Les lignes commençant par '#' sont des commentaires
+
+# ── Source de données ──────────────────────────────────────────────────────────
+# Répertoire contenant les fichiers CSV d'instances réelles (matrice 0/1, séparateur virgule, sans en-tête)
+instances_dir=Mat
+
+# Optionnel : liste explicite de noms de fichiers dans instances_dir
+# Si absent, tous les fichiers *.csv dans instances_dir sont utilisés
+# instances=fichier1.csv,fichier2.csv
+
+# ── Matrices synthétiques ──────────────────────────────────────────────────────
+# Mettre à true pour générer des matrices synthétiques au lieu d'utiliser des instances réelles
+synthetic=true
+
+# Dimensions et densité de base des matrices synthétiques
+# Format : L:<lignes>,C:<colonnes>,density:<fraction_de_uns>
+synthetic_specs=L:200,C:200,density:0.1
+
+# ── Répétitions ────────────────────────────────────────────────────────────────
+# Nombre d'exécutions indépendantes par paire (instance, gamma).
+# Chaque répétition génère une graine aléatoire à l'exécution, enregistrée
+# dans le CSV et le log JSON pour la reproductibilité complète.
+repetitions=5
+
+# ── Valeurs de gamma (densité cible minimale de la sous-matrice sélectionnée) ──
+# error_rate = 1 - gamma est transmis aux solveurs
+gammas=0.9,0.95,0.99,1.0
+
+# ── Solveurs (exacts — classes dans model/final/) ──────────────────────────────
+# Options de format :
+#   NomClasse                          → recherche dans tous les modules sous model/final
+#   nom_fichier_module:NomClasse       → ex. max_one_final:MaxOneModel
+#   model.final.module:NomClasse       → chemin complet
+# Plusieurs solveurs : séparés par des virgules
+solvers=MaxOneModel,MaxSurfaceModel
+
+# ── Heuristiques (fonctions dans model/heuristics/) ───────────────────────────
+# Options de format :
+#   nom_fonction                           → recherche dans tous les modules sous model/heuristics
+#   nom_fichier_module:nom_fonction        → ex. heuristicA:heuristicA
+#   model.heuristics.module:fonction       → chemin complet
+# Plusieurs heuristiques : séparées par des virgules
+heuristics=heuristicA
+
+# ── Solveur pour les heuristiques ──────────────────────────────────────────────
+# Quelle classe de solveur injecter comme model_class dans chaque heuristique.
+# ALL  → chaque solveur dans 'solvers' est utilisé pour chaque exécution heuristique,
+#        produisant une ligne CSV par paire (heuristique, solveur).
+# Nom  → un nom de classe spécifique (doit figurer dans 'solvers') ; seul ce solveur
+#        est utilisé pour les exécutions heuristiques. Repli sur ALL avec un avertissement
+#        si le nom est introuvable.
+heuristic_solver=ALL
+
+# ── Délais d'expiration (secondes) ─────────────────────────────────────────────
+timeout_exact=600
+timeout_heuristic=150
+
+# ── Sortie ──────────────────────────────────────────────────────────────────────
+output_dir=T1/results
+
+# ── Parallélisme ────────────────────────────────────────────────────────────────
+# Nombre de workers parallèles (1 = séquentiel, >1 utilise ThreadPoolExecutor)
+parallel_jobs=1
+
+# ── Indicateurs ─────────────────────────────────────────────────────────────────
+# dry_run=true  → affiche les exécutions planifiées sans les lancer
+dry_run=false
+
+# quick_check=true → lance le pipeline de validation minimal sur une matrice 5×5
+quick_check=false

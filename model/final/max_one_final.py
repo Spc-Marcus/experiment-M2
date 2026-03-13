@@ -5,16 +5,16 @@ from model.base import BiclusterModelBase
 
 
 class MaxOneModel(BiclusterModelBase):
-    def __init__(self, rows_data, cols_data, edges, error_rate: float,env=None):
-        # Store data
+    def __init__(self, rows_data, cols_data, edges, error_rate: float, env=None):
+        # Stockage des données
         self.rows_data = rows_data
         self.cols_data = cols_data
         self.edges = set(edges)
         self.error_rate = float(error_rate)
 
-        # Create model
+        # Création du modèle
         if env is not None:
-            self.model = gp.Model("max_one_grb_v3",env=env)
+            self.model = gp.Model("max_one_grb_v3", env=env)
         else:
             self.model = gp.Model("max_one_grb_v3")
         self.model.setAttr('ModelSense', GRB.MAXIMIZE)
@@ -31,47 +31,46 @@ class MaxOneModel(BiclusterModelBase):
                 val = 1 if (row, col) in self.edges else 0
                 self.lp_cells[(row, col)] = (var, val)
 
-        # Objective (same as v1)
+        # Objectif
         self._ones_expr = gp.quicksum(cell_val * var for var, cell_val in self.lp_cells.values())
         self.model.setObjective(self._ones_expr, GRB.MAXIMIZE)
 
-        # Structure constraints (same as v1)
+        # Contraintes de structure
         for (row, col), (cell_var, _) in self.lp_cells.items():
             self.model.addConstr(self.lp_rows[row][0] >= cell_var, name=f'cell_{row}_{col}_1')
             self.model.addConstr(self.lp_cols[col][0] >= cell_var, name=f'cell_{row}_{col}_2')
             self.model.addConstr(self.lp_rows[row][0] + self.lp_cols[col][0] - 1 <= cell_var, name=f'cell_{row}_{col}_3')
 
-        # Error-rate constraint (same as v1)
+        # Contrainte de taux d'erreur
         self._err_expr = gp.quicksum((1 - cell_val) * var for var, cell_val in self.lp_cells.values())
         self._tot_expr = gp.quicksum(var for var, _ in self.lp_cells.values())
         self._err_rate_constr = self.model.addConstr(self._err_expr <= self.error_rate * self._tot_expr, name='err_rate')
 
-        # Dynamic helpers
+        # Aides dynamiques
         self._forced_row_constrs = {}
         self._forced_col_constrs = {}
         self._improvement_constr = None
 
     def add_WarmStart(self, rows, cols):
-        # Provide a complete and consistent MIP start for all vars (rows, cols, cells)
+        # Fournit un démarrage chaud MIP complet et cohérent pour toutes les variables
         rows_set = set(rows)
         cols_set = set(cols)
 
-        # Initialize row/col variable starts to 0 by default, 1 if selected
+        # Initialise les starts des variables ligne/colonne à 0 par défaut, 1 si sélectionnée
         for r, (var_r, _) in self.lp_rows.items():
             var_r.start = 1 if r in rows_set else 0
         for c, (var_c, _) in self.lp_cols.items():
             var_c.start = 1 if c in cols_set else 0
 
-        # Initialize cell variable starts consistent with logical AND of row/col selection
-        # cell_{r,c} = 1 iff row_r = 1 and col_c = 1
+        # Initialise les starts des variables cellule cohérents avec le ET logique ligne/colonne
+        # cell_{r,c} = 1 ssi row_r = 1 et col_c = 1
         for (r, c), (var_cell, _) in self.lp_cells.items():
             var_cell.start = 1 if (r in rows_set and c in cols_set) else 0
 
-        # Push starts into the model
+        # Pousse les starts dans le modèle
         self.model.update()
 
-    
-    # Solver helpers
+    # Fonctions utilitaires du solveur
     def optimize(self):
         self.model.optimize()
 
