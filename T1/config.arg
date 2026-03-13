@@ -12,7 +12,7 @@ instances_dir= data
 repetitions=1
 
 # Valeurs de gamma à tester (error_rate = 1 - gamma)
-gammas=1,0.99,0.98,0.97,0.975,95
+gammas=1,0.99,0.98,0.97,0.975,0.95
 
 # Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
 solvers=MaxOneModel,MaxSurfaceModel,MaxERModel
