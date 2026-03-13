@@ -5,7 +5,7 @@
 # Utiliser des matrices synthétiques pour les tests rapides
 synthetic=false
 synthetic_specs=L:10,C:10,density:0.5
-instances_dir= data/RDM
+instances_dir= data
 
 # Nombre de répétitions indépendantes par paire (instance, gamma).
 # Chaque répétition reçoit une graine générée aléatoirement (enregistrée dans CSV/logs).
@@ -15,7 +15,7 @@ repetitions=1
 gammas=1
 
 # Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
-solvers=MaxOneModel,MaxSurfaceModel
+solvers=MaxOneModel,MaxSurfaceModel,MaxERModel
 
 # Heuristiques depuis model/heuristics/ (nom_fonction ou module:nom_fonction)
 heuristics=heuristicA
