@@ -12,7 +12,7 @@ instances_dir= data
 repetitions=1
 
 # Valeurs de gamma à tester (error_rate = 1 - gamma)
-gammas=1
+gammas=1,0.99,0.98,0.97,0.975,95
 
 # Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
 solvers=MaxOneModel,MaxSurfaceModel,MaxERModel
@@ -26,14 +26,14 @@ heuristics=heuristicA
 heuristic_solver=ALL
 
 # Délais d'expiration
-timeout_exact=600
-timeout_heuristic=300
+timeout_exact=3600
+timeout_heuristic=1800
 
 # Répertoire de sortie (relatif à la racine du dépôt)
 output_dir=T1/results
 
 # Parallélisme (1 = séquentiel)
-parallel_jobs=2
+parallel_jobs=6
 
 # Indicateurs
 dry_run=false
