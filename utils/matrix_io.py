@@ -53,11 +53,12 @@ def load_csv_matrix(path: str, sep: Optional[str] = None) -> np.ndarray:
                 break
 
     # ── Auto-detect header ───────────────────────────────────────────────────
-    has_header = False
-    try:
-        [float(v.strip()) for v in first_line.split(detected_sep) if v.strip()]
-    except ValueError:
-        has_header = True
+    # Accept only the literal tokens '0', '1', '-1'.
+    # If any token in the first line is outside this set, treat the first
+    # line as a header (column names) and skip it.
+    allowed_values = {"0", "1", "-1"}
+    tokens = [v.strip() for v in first_line.split(detected_sep)]
+    has_header = not all(t in allowed_values for t in tokens)
 
     if detected_sep != "," or has_header:
         logging.info(
@@ -66,18 +67,54 @@ def load_csv_matrix(path: str, sep: Optional[str] = None) -> np.ndarray:
             has_header,
             path,
         )
+    # ── Auto-detect row header (non-numeric first column) ───────────────────────────────────────────────
+    has_row_header = False
+    with open(path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f, delimiter=detected_sep)
+        if has_header:
+            next(reader, None)
+        for r in reader:
+            if not r:
+                continue
+            tokens = [v.strip() for v in r if v.strip()]
+            if not tokens:
+                continue
+            try:
+                float(tokens[0])
+            except ValueError:
+                for t in tokens[1:]:
+                    try:
+                        float(t)
+                        has_row_header = True
+                        break
+                    except ValueError:
+                        continue
+            break
+
+    if has_row_header:
+        logging.info("matrix_io: auto-detected row header in first column for %s", path)
 
     # ── Read rows ────────────────────────────────────────────────────────────
     rows = []
     with open(path, "r", encoding="utf-8") as f:
         reader = csv.reader(f, delimiter=detected_sep)
         if has_header:
-            next(reader)
+            next(reader, None)
         for row in reader:
             if not row:
                 continue
+            tokens = [v.strip() for v in row if v.strip()]
+            if not tokens:
+                continue
+            if has_row_header:
+                if len(tokens) <= 1:
+                    logging.warning(
+                        "matrix_io: skipping row with only non-numeric label in %s", path
+                    )
+                    continue
+                tokens = tokens[1:]
             try:
-                rows.append([int(float(v.strip())) for v in row if v.strip()])
+                rows.append([int(float(v)) for v in tokens])
             except ValueError:
                 logging.warning("matrix_io: skipping non-numeric row in %s", path)
                 continue

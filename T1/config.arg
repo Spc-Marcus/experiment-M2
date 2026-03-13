@@ -3,18 +3,19 @@
 # Ou exécution complète : python T1/run_experiment.py
 
 # Utiliser des matrices synthétiques pour les tests rapides
-synthetic=true
+synthetic=false
 synthetic_specs=L:10,C:10,density:0.5
+instances_dir= data/RDM
 
 # Nombre de répétitions indépendantes par paire (instance, gamma).
 # Chaque répétition reçoit une graine générée aléatoirement (enregistrée dans CSV/logs).
-repetitions=5
+repetitions=1
 
 # Valeurs de gamma à tester (error_rate = 1 - gamma)
-gammas=0.9,0.95
+gammas=1
 
 # Solveurs depuis model/final/ (NomClasse ou module:NomClasse)
-solvers=MaxOneModel
+solvers=MaxOneModel,MaxSurfaceModel
 
 # Heuristiques depuis model/heuristics/ (nom_fonction ou module:nom_fonction)
 heuristics=heuristicA
@@ -25,14 +26,14 @@ heuristics=heuristicA
 heuristic_solver=ALL
 
 # Délais d'expiration
-timeout_exact=120
-timeout_heuristic=60
+timeout_exact=600
+timeout_heuristic=300
 
 # Répertoire de sortie (relatif à la racine du dépôt)
 output_dir=T1/results
 
 # Parallélisme (1 = séquentiel)
-parallel_jobs=1
+parallel_jobs=2
 
 # Indicateurs
 dry_run=false
